@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  # For now, also run on push to main, but later push to main
+  # will trigger a staging deployment workflow instead of CI.
+  # And the staging deployment workflow will call this workflow as a reusable workflow.
+  # workflow_call:
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Build & Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Varlock Generate
+        run: bun run env:generate
+
+      - name: Varlock Validate (Development)
+        run: bun run env:validate
+
+      - name: Varlock Validate - Staging (Only Frontend)
+        run: bun run env:validate --filter=frontend
+        env:
+          APP_ENV: staging
+
+      - name: Varlock Validate - Production (Only Frontend)
+        run: bun run env:validate --filter=frontend
+        env:
+          APP_ENV: production
+
+      - name: Build all packages
+        run: bun run build
+
+      - name: Check (Format, Lint, Type Check)
+        run: bun run check
