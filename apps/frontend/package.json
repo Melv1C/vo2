@@ -21,6 +21,7 @@
     "@tanstack/react-router": "latest",
     "@tanstack/react-router-devtools": "latest",
     "@varlock/vite-integration": "^1.4.0",
+    "better-auth": "^1.6.26",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tailwindcss": "^4.3.3",
