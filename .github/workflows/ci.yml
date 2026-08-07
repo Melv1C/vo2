@@ -3,12 +3,7 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  # For now, also run on push to main, but later push to main
-  # will trigger a staging deployment workflow instead of CI.
-  # And the staging deployment workflow will call this workflow as a reusable workflow.
-  # workflow_call:
-  push:
-    branches: [main]
+  workflow_call:
 
 jobs:
   ci:
