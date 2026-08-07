@@ -15,7 +15,9 @@ const emptySummary = {
 export const activitiesRoutes = new Hono()
   .use(isAuthenticated)
   .get("/", async (c) => {
-    const summary = await getActivitiesSummary(c.get("user")!.id);
+    const userId = c.get("user")!.id;
+    const summary =
+      (await triggerActivitySyncForUser(userId)) ?? (await getActivitiesSummary(userId));
     return c.json(summary ?? emptySummary);
   })
   .post("/sync", async (c) => {
