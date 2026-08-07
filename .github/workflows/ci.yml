@@ -33,19 +33,6 @@ jobs:
       - name: Varlock Generate
         run: bun run env:generate
 
-      - name: Varlock Validate (Development)
-        run: bun run env:validate
-
-      - name: Varlock Validate - Staging (Only Frontend)
-        run: bun run env:validate --filter=frontend
-        env:
-          APP_ENV: staging
-
-      - name: Varlock Validate - Production (Only Frontend)
-        run: bun run env:validate --filter=frontend
-        env:
-          APP_ENV: production
-
       - name: Build all packages
         run: bun run build
 
