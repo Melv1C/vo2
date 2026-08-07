@@ -1,6 +1,9 @@
 {
   "name": "backend",
   "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
     "dev": "bun run --hot src/index.ts",
     "env:generate": "varlock codegen",
     "env:validate": "varlock load"
