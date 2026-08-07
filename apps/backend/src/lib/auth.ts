@@ -5,7 +5,8 @@ import { ENV } from "varlock/env";
 
 import { db } from "@/database";
 import * as schema from "@/database/entities/auth";
-import { DetailedAthlete, stravaFetch } from "@/integrations/strava";
+import { DetailedAthlete } from "@/integrations/strava";
+import { stravaFetch } from "@/integrations/strava/client";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
