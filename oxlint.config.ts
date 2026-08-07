@@ -1,5 +1,5 @@
 import eslintPluginZod from "eslint-plugin-zod";
-import { defineConfig, DummyRuleMap } from "oxlint";
+import { defineConfig, type DummyRuleMap } from "oxlint";
 
 const oxlintZodRecommendedRules = {
   ...eslintPluginZod.configs.recommended.rules,
