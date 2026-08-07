@@ -3,14 +3,26 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardHeader } from "@repo/ui/components/ui/card";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { signIn, signOut, useSession } from "@/lib/auth-client";
+import { activitiesQueryOptions } from "@/lib/activities-query";
+import { authClient, signIn, signOut, useSession } from "@/lib/auth-client";
 import { useActivities } from "@/lib/use-activities";
 
-export const Route = createFileRoute("/")({ component: Home });
+export const Route = createFileRoute("/")({
+  loader: async ({ context: { queryClient } }) => {
+    const { data: session } = await authClient.getSession();
+
+    if (!session) {
+      return null;
+    }
+
+    return queryClient.ensureQueryData(activitiesQueryOptions);
+  },
+  component: Home,
+});
 
 function Home() {
   const { data: session, isPending } = useSession();
-  const { data: activities, isSyncing } = useActivities(!!session);
+  const { data: activities, isFetching } = useActivities(!!session);
 
   return (
     <Card className="w-full max-w-sm">
@@ -30,10 +42,10 @@ function Home() {
               {activities?.lastFetchedAt && (
                 <p className="text-xs">
                   Last synced {new Date(activities.lastFetchedAt).toLocaleString()}
-                  {isSyncing ? " · syncing…" : ""}
+                  {isFetching ? " · syncing…" : ""}
                 </p>
               )}
-              {!activities?.lastFetchedAt && isSyncing && (
+              {!activities?.lastFetchedAt && isFetching && (
                 <p className="text-xs">Syncing activities…</p>
               )}
             </div>
