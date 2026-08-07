@@ -5,6 +5,7 @@ import { ENV } from "varlock/env";
 
 import { db } from "@/database";
 import * as schema from "@/database/entities/auth";
+import { DetailedAthlete, stravaFetch } from "@/integrations/strava";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -34,16 +35,18 @@ export const auth = betterAuth({
           },
 
           getUserInfo: async (tokens) => {
-            const res = await fetch("https://www.strava.com/api/v3/athlete", {
+            if (!tokens.accessToken) {
+              throw new Error("Missing Strava access token");
+            }
+
+            const athlete = await stravaFetch<DetailedAthlete>("/athlete", {
               headers: {
                 Authorization: `Bearer ${tokens.accessToken}`,
               },
             });
 
-            const athlete = (await res.json()) as any;
-
             return {
-              id: athlete.id.toString(),
+              id: athlete.id!.toString(),
               name: `${athlete.firstname} ${athlete.lastname}`,
               email: `${athlete.id}@strava.local`,
               image: athlete.profile,
