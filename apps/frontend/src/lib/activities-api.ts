@@ -1,3 +1,4 @@
+import { createFetch } from "@better-fetch/fetch";
 import { ENV } from "varlock/env";
 
 export type ActivitySyncSummary = {
@@ -6,27 +7,11 @@ export type ActivitySyncSummary = {
   newActivities: number;
 };
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${ENV.BACKEND_URL}/api${path}`, {
-    credentials: "include",
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers as Record<string, string> | undefined),
-    },
-  });
+const api = createFetch({
+  baseURL: `${ENV.BACKEND_URL}/api`,
+  credentials: "include",
+  throw: true,
+});
 
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-
-  return response.json() as Promise<T>;
-}
-
-export function fetchActivities(): Promise<ActivitySyncSummary> {
-  return request<ActivitySyncSummary>("/activities");
-}
-
-export function syncActivities(): Promise<ActivitySyncSummary> {
-  return request<ActivitySyncSummary>("/activities/sync", { method: "POST" });
-}
+export const fetchActivities = (signal?: AbortSignal) =>
+  api<ActivitySyncSummary>("/activities", { signal });
