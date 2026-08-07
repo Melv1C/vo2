@@ -7,24 +7,25 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "check": "vp check",
+    "check": "oxfmt --check && oxlint",
     "deps": "ncu",
     "dev": "turbo run dev",
     "docker:db": "docker compose -f docker-compose.db.yml up -d",
     "docker:db:down": "docker compose -f docker-compose.db.yml down",
     "env:generate": "turbo run env:generate",
     "env:validate": "turbo run env:validate",
-    "format": "vp fmt",
-    "lint": "vp lint"
+    "format": "oxfmt",
+    "lint": "oxlint"
   },
   "devDependencies": {
     "eslint-plugin-zod": "^4.9.0",
     "npm-check-updates": "^23.0.1",
+    "oxfmt": "^0.62.0",
+    "oxlint": "^1.77.0",
     "prettier": "^3.9.6",
     "turbo": "^2.10.8",
     "typescript": "7.0.2",
-    "varlock": "^1.16.0",
-    "vite-plus": "^0.2.8"
+    "varlock": "^1.16.0"
   },
   "devEngines": {
     "packageManager": {
