@@ -98,7 +98,7 @@ jobs:
           esac
 
           curl -X 'POST' \
-          '${{ secrets.DOKPLOY_DOMAIN }}/api/application.deploy' \
+          'https://${{ secrets.DOKPLOY_DOMAIN }}/api/application.deploy' \
           -H 'accept: application/json' \
           -H 'x-api-key: ${{ secrets.DOKPLOY_API_KEY }}' \
           -H 'Content-Type: application/json' \
