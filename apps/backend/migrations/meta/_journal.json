@@ -15,6 +15,13 @@
       "when": 1786045809430,
       "tag": "0001_conscious_flatman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786110017410,
+      "tag": "0002_wild_mercury",
+      "breakpoints": true
     }
   ]
 }
