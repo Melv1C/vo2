@@ -4,3 +4,8 @@ export const stravaFetch = createFetch({
   baseURL: "https://www.strava.com/api/v3",
   throw: true,
 });
+
+export const stravaOAuthFetch = createFetch({
+  baseURL: "https://www.strava.com",
+  throw: true,
+});
