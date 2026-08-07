@@ -6,7 +6,8 @@
     "db:studio": "drizzle-kit studio",
     "dev": "bun run --hot src/index.ts",
     "env:generate": "varlock codegen",
-    "env:validate": "varlock load"
+    "env:validate": "varlock load",
+    "start": "bun run db:migrate && bun run src/index.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.26",
