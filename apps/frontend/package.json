@@ -6,12 +6,12 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "build": "vp build",
-    "dev": "vp dev",
+    "build": "vite build",
+    "dev": "vite",
     "env:generate": "varlock codegen",
     "env:validate": "varlock load",
     "generate-routes": "tsr generate",
-    "preview": "vp preview"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@repo/ui": "workspace:*",
@@ -39,7 +39,6 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",
-    "typescript": "^7.0.2",
-    "vite-plus": "^0.2.8"
+    "typescript": "^7.0.2"
   }
 }
