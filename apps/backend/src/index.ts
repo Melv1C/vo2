@@ -29,6 +29,7 @@ export type AppType = typeof app;
 
 export default {
   port: ENV.BACKEND_PORT,
+  idleTimeout: 120,
   fetch: app.fetch,
 };
 
