@@ -1,30 +1,14 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { RouterProvider } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 
-import { routeTree } from "./routeTree.gen";
+import { createQueryClient } from "./lib/query-client";
+import { getRouter } from "./router";
 
 import "./index.css";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: true,
-    },
-  },
-});
-
-const router = createRouter({
-  routeTree,
-  defaultPreload: "intent",
-  scrollRestoration: true,
-});
-
-declare module "@tanstack/react-router" {
-  interface Register {
-    router: typeof router;
-  }
-}
+const queryClient = createQueryClient();
+const router = getRouter(queryClient);
 
 const rootElement = document.getElementById("app")!;
 
