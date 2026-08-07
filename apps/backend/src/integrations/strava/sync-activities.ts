@@ -52,12 +52,12 @@ async function refreshAccessToken(accountRow: StravaAccount): Promise<string> {
 
   const tokens = await stravaOAuthFetch<StravaTokenResponse>("/oauth/token", {
     method: "POST",
-    body: {
+    body: new URLSearchParams({
       client_id: ENV.STRAVA_CLIENT_ID,
       client_secret: ENV.STRAVA_CLIENT_SECRET,
       grant_type: "refresh_token",
       refresh_token: accountRow.refreshToken,
-    },
+    }),
   });
 
   await db
