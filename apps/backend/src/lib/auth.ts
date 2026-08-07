@@ -7,6 +7,7 @@ import { dbWithoutLogging } from "@/database";
 import * as schema from "@/database/entities/auth";
 import { DetailedAthlete } from "@/integrations/strava";
 import { stravaFetch } from "@/integrations/strava/client";
+import { triggerActivitySyncForUser } from "@/integrations/strava/sync-activities";
 
 export const auth = betterAuth({
   database: drizzleAdapter(dbWithoutLogging, {
@@ -14,6 +15,12 @@ export const auth = betterAuth({
     schema: schema,
   }),
   trustedOrigins: [ENV.FRONTEND_URL],
+  user: {
+    additionalFields: {
+      athleteCreatedAt: { type: "date", required: false, input: true },
+      sex: { type: "string", required: false, input: true },
+    },
+  },
   plugins: [
     admin(),
     genericOAuth({
@@ -32,6 +39,8 @@ export const auth = betterAuth({
               email: profile.email,
               image: profile.image,
               emailVerified: profile.emailVerified,
+              athleteCreatedAt: profile.athleteCreatedAt,
+              sex: profile.sex,
             };
           },
 
@@ -52,10 +61,23 @@ export const auth = betterAuth({
               email: `${athlete.id}@strava.local`,
               image: athlete.profile,
               emailVerified: false,
+              athleteCreatedAt: athlete.created_at ? new Date(athlete.created_at) : undefined,
+              sex: athlete.sex,
             };
           },
         },
       ],
     }),
   ],
+  databaseHooks: {
+    session: {
+      create: {
+        after: async (session) => {
+          void triggerActivitySyncForUser(session.userId).catch((err) => {
+            console.error(`[strava-sync] failed for user=${session.userId}`, err);
+          });
+        },
+      },
+    },
+  },
 });
