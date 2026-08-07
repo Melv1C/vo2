@@ -11,6 +11,10 @@
  */
 export async function getVersionMessage(releasePlan) {
   const publishable = releasePlan.releases.filter((r) => r.type !== "none");
+  if (publishable.length === 0) {
+    return "release: (no versioned packages)";
+  }
+
   const parts = publishable
     .map((r) => `${r.name}@${r.newVersion}`)
     .sort((a, b) => a.localeCompare(b));
