@@ -4,11 +4,13 @@ import { Card, CardHeader } from "@repo/ui/components/ui/card";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { signIn, signOut, useSession } from "@/lib/auth-client";
+import { useActivities } from "@/lib/use-activities";
 
 export const Route = createFileRoute("/")({ component: Home });
 
 function Home() {
   const { data: session, isPending } = useSession();
+  const { data: activities, isSyncing } = useActivities(!!session);
 
   return (
     <Card className="w-full max-w-sm">
@@ -23,6 +25,18 @@ function Home() {
               Signed in as <br />
               {session.user.name}
             </p>
+            <div className="text-muted-foreground text-center text-sm">
+              <p>{activities?.activitiesCount ?? 0} activities</p>
+              {activities?.lastFetchedAt && (
+                <p className="text-xs">
+                  Last synced {new Date(activities.lastFetchedAt).toLocaleString()}
+                  {isSyncing ? " · syncing…" : ""}
+                </p>
+              )}
+              {!activities?.lastFetchedAt && isSyncing && (
+                <p className="text-xs">Syncing activities…</p>
+              )}
+            </div>
             <Button variant="outline" onClick={() => signOut()} disabled={isPending}>
               Sign out
             </Button>
