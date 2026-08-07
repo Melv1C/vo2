@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        app: [admin, backend, frontend]
+        app: [backend, frontend]
         include:
           - app: backend
             app_id_secret: DOKPLOY_STAGING_BACKEND_APP_ID
