@@ -1,11 +1,11 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardHeader } from "@repo/ui/components/ui/card";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { activitiesQueryOptions } from "@/lib/activities-query";
 import { authClient, signIn, signOut, useSession } from "@/lib/auth-client";
-import { useActivities } from "@/lib/use-activities";
 
 export const Route = createFileRoute("/")({
   loader: async ({ context: { queryClient } }) => {
@@ -15,14 +15,17 @@ export const Route = createFileRoute("/")({
       return null;
     }
 
-    return queryClient.ensureQueryData(activitiesQueryOptions);
+    void queryClient.ensureQueryData(activitiesQueryOptions);
   },
   component: Home,
 });
 
 function Home() {
   const { data: session, isPending } = useSession();
-  const { data: activities, isFetching } = useActivities(!!session);
+  const { data: activities, isFetching } = useQuery({
+    ...activitiesQueryOptions,
+    enabled: !!session,
+  });
 
   return (
     <Card className="w-full max-w-sm">
