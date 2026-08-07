@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    "./*": "./src/*.tsx"
+    "./*": "./src/*.tsx",
+    "./base.css": "./src/styles/base.css",
+    "./default.css": "./src/styles/default.css",
+    "./index.css": "./src/index.css"
   },
   "scripts": {},
   "dependencies": {

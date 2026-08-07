@@ -3,8 +3,6 @@ import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 
-import "../styles.css";
-
 export const Route = createRootRoute({
   component: RootComponent,
 });
@@ -12,7 +10,10 @@ export const Route = createRootRoute({
 function RootComponent() {
   return (
     <>
-      <Outlet />
+      <main className="flex flex-col items-center justify-center gap-4 p-4">
+        <Outlet />
+      </main>
+
       <TanStackDevtools
         plugins={[
           {

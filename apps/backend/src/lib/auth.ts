@@ -4,11 +4,14 @@ import { admin, genericOAuth } from "better-auth/plugins";
 import { ENV } from "varlock/env";
 
 import { db } from "@/database";
+import * as schema from "@/database/entities/auth";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
+    schema: schema,
   }),
+  trustedOrigins: [ENV.FRONTEND_URL],
   plugins: [
     admin(),
     genericOAuth({
@@ -24,7 +27,7 @@ export const auth = betterAuth({
           mapProfileToUser: (profile) => {
             return {
               name: profile.name,
-              email: "",
+              email: profile.email,
               image: profile.image,
               emailVerified: profile.emailVerified,
             };
@@ -42,6 +45,7 @@ export const auth = betterAuth({
             return {
               id: athlete.id.toString(),
               name: `${athlete.firstname} ${athlete.lastname}`,
+              email: `${athlete.id}@strava.local`,
               image: athlete.profile,
               emailVerified: false,
             };
