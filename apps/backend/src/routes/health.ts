@@ -5,7 +5,6 @@ import { db } from "@/database";
 import { logger } from "@/lib/logger";
 
 export const healthRoutes = new Hono().get("/", async (c) => {
-  logger.info("Health check requested");
   let isDatabaseConnected = false;
 
   try {
@@ -16,9 +15,6 @@ export const healthRoutes = new Hono().get("/", async (c) => {
     isDatabaseConnected = false;
   }
 
-  logger.info("Database connectivity check completed", {
-    isDatabaseConnected: !!isDatabaseConnected,
-  });
   return c.json(
     {
       status: isDatabaseConnected ? "ok" : "error",
