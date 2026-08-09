@@ -7,6 +7,7 @@ import { ENV } from "varlock/env";
 
 import { logger } from "./lib/logger";
 import { routes } from "./routes";
+import "./hono-context.types";
 
 const app = new Hono()
   .use(

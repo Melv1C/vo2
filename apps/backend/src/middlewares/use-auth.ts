@@ -2,13 +2,7 @@ import type { Context, Next } from "hono";
 
 import { auth } from "@/lib/auth";
 import { logger } from "@/lib/logger";
-import { type User, user$ } from "@/schemas";
-
-declare module "hono" {
-  interface ContextVariableMap {
-    user: User | null;
-  }
-}
+import { user$ } from "@/schemas";
 
 export const useAuth = async (c: Context, next: Next) => {
   const sessionData = await auth.api.getSession({
