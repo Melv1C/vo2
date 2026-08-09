@@ -10,11 +10,18 @@ const appLabel = `${rootPackageJson.name}-${packageJson.name}`;
 
 const isDev = ENV.APP_ENV === "development";
 
+/**
+ * Add context to the log message
+ */
 const addContext = winston.format((info) => {
   const c = tryGetContext();
 
   return {
     ...info,
+    requestId: c?.var.requestId,
+    method: c?.req.method,
+    path: c?.req.path,
+    userId: c?.var.user?.id,
     labels: {
       requestId: c?.var.requestId,
       method: c?.req.method,
@@ -25,6 +32,14 @@ const addContext = winston.format((info) => {
   };
 });
 
+/**
+ * Remove labels from the log message for console output
+ */
+const removeLabels = winston.format((info) => {
+  delete info.labels;
+  return info;
+});
+
 export const logger = winston.createLogger({
   level: "debug",
   format: winston.format.combine(winston.format.json(), addContext()),
@@ -33,7 +48,11 @@ export const logger = winston.createLogger({
       ? [
           new winston.transports.Console({
             level: isDev ? "debug" : "info",
-            format: winston.format.combine(winston.format.colorize(), winston.format.simple()),
+            format: winston.format.combine(
+              winston.format.colorize(),
+              removeLabels(),
+              winston.format.simple(),
+            ),
           }),
         ]
       : []),
