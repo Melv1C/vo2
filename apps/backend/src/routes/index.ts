@@ -13,7 +13,7 @@ export const routes = new Hono()
 
   .use(useLogger)
   .route("/health", healthRoutes)
-  .onError((err, c) => {
-    logger.error("Unhandled error occurred", { error: err });
+  .onError((error, c) => {
+    logger.error("Unhandled error occurred", { error });
     return c.json({ message: "Internal Server Error" }, 500);
   });
