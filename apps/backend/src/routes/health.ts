@@ -16,7 +16,9 @@ export const healthRoutes = new Hono().get("/", async (c) => {
     isDatabaseConnected = false;
   }
 
-  logger.info("Database connectivity check completed", { isDatabaseConnected: !!isDatabaseConnected });
+  logger.info("Database connectivity check completed", {
+    isDatabaseConnected: !!isDatabaseConnected,
+  });
   return c.json(
     {
       status: isDatabaseConnected ? "ok" : "error",
