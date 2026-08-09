@@ -4,7 +4,7 @@ import { logger } from "@/lib/logger";
 
 export const useLogger = async (c: Context, next: Next) => {
   const start = Date.now();
-  logger.info(`Incoming request: ${c.req.method} ${c.req.path}`);
+  logger.info("Incoming request", { method: c.req.method, path: c.req.path });
 
   try {
     await next();
