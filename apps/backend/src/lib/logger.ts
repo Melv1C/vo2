@@ -14,6 +14,7 @@ const addContext = winston.format((info) => {
   const c = tryGetContext();
 
   return {
+    ...info,
     labels: {
       requestId: c?.var.requestId,
       method: c?.req.method,
@@ -21,7 +22,6 @@ const addContext = winston.format((info) => {
       userId: c?.var.user?.id,
       ...(info.labels ? info.labels : {}),
     },
-    ...info,
   };
 });
 
