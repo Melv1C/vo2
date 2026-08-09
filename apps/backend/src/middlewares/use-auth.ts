@@ -2,7 +2,7 @@ import type { Context, Next } from "hono";
 
 import { auth } from "@/lib/auth";
 import { logger } from "@/lib/logger";
-import { type User, User$ } from "@/schemas";
+import { type User, user$ } from "@/schemas";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -15,7 +15,7 @@ export const useAuth = async (c: Context, next: Next) => {
     headers: c.req.raw.headers,
   });
 
-  const user = sessionData?.user ? User$.safeParse(sessionData.user) : null;
+  const user = sessionData?.user ? user$.safeParse(sessionData.user) : null;
 
   if (user && !user.success) {
     logger.error("Invalid user data in session", { error: user.error.message });
