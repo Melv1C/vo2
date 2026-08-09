@@ -1,6 +1,7 @@
 {
   "name": "backend",
   "version": "0.1.1",
+  "type": "module",
   "scripts": {
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -16,9 +17,13 @@
     "better-auth": "^1.6.26",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
+    "drizzle-zod": "^0.8.3",
     "hono": "^4.13.0",
     "pg": "^8.22.0",
-    "varlock": "^1.16.0"
+    "varlock": "^1.16.0",
+    "winston": "^3.19.0",
+    "winston-loki": "^6.1.6",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bun": "latest",

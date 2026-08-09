@@ -1,1 +1,1 @@
-export { db } from "./client";
+export { db, dbWithoutLogging } from "./client";

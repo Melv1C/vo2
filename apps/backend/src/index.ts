@@ -1,9 +1,13 @@
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import "varlock/auto-load";
+import { contextStorage } from "hono/context-storage";
+import { cors } from "hono/cors";
+import { requestId } from "hono/request-id";
 import { ENV } from "varlock/env";
 
+import { logger } from "./lib/logger";
 import { routes } from "./routes";
+import "./hono-context.types";
 
 const app = new Hono()
   .use(
@@ -12,6 +16,8 @@ const app = new Hono()
       credentials: true,
     }),
   )
+  .use(contextStorage())
+  .use(requestId())
   .route("/api", routes);
 
 export type AppType = typeof app;
@@ -20,3 +26,8 @@ export default {
   port: ENV.BACKEND_PORT,
   fetch: app.fetch,
 };
+
+logger.info("Backend started", {
+  port: `${ENV.BACKEND_PORT}`,
+  url: ENV.BACKEND_URL,
+});

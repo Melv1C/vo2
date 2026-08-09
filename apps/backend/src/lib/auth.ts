@@ -3,13 +3,13 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, genericOAuth } from "better-auth/plugins";
 import { ENV } from "varlock/env";
 
-import { db } from "@/database";
+import { dbWithoutLogging } from "@/database";
 import * as schema from "@/database/entities/auth";
 import { DetailedAthlete } from "@/integrations/strava";
 import { stravaFetch } from "@/integrations/strava/client";
 
 export const auth = betterAuth({
-  database: drizzleAdapter(db, {
+  database: drizzleAdapter(dbWithoutLogging, {
     provider: "pg",
     schema: schema,
   }),
