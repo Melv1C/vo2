@@ -7,8 +7,6 @@ export const activitySyncState = pgTable("activity_sync_state", {
   userId: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
-  /** User-chosen gate: only fetch streams for activities on/after this date. */
-  streamsSince: timestamp("streams_since"),
   summariesBackfillComplete: boolean("summaries_backfill_complete").notNull().default(false),
   /** Epoch seconds cursor for Strava activities list `after` param. */
   summariesCursor: integer("summaries_cursor"),
