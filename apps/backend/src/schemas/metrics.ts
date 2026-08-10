@@ -23,6 +23,25 @@ export const dataQualityReport$ = z.object({
   movingTimeS: z.number(),
 });
 
+export const cyclingPayload$ = z.object({
+  np: z.number(),
+  intensityFactor: z.number(),
+  tss: z.number(),
+  variabilityIndex: z.number(),
+  workKj: z.number(),
+  wattsPerKg: z.number(),
+});
+
+export const runningPayload$ = z.object({
+  ngpMps: z.number(),
+  runIntensityFactor: z.number(),
+  rTss: z.number(),
+  efficiencyIndex: z.number(),
+  avgCadence: z.number().nullable(),
+});
+
+export const sportPayload$ = z.union([cyclingPayload$, runningPayload$]);
+
 export const anchorSnapshot$ = z.object({
   maxHr: z.number().nullable(),
   restingHr: z.number().nullable(),
@@ -44,6 +63,9 @@ export const activityMetricsResponse$ = z.object({
   movingTimeS: z.number(),
   decouplingPct: z.number().nullable(),
   timeInZone: z.array(timeInZone$),
+  energyKcal: z.number().nullable(),
+  weightKgUsed: z.number().nullable(),
+  sportPayload: sportPayload$.nullable(),
   dataQuality: dataQualityReport$,
   anchorSnapshot: anchorSnapshot$,
   metricsVersion: z.number().int(),
