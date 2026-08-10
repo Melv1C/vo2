@@ -6,6 +6,7 @@ import { activitySyncState } from "@/database/entities/activity-sync-state";
 import { athleteProfile } from "@/database/entities/athlete-profile";
 import { account } from "@/database/entities/auth";
 import { stravaActivities, type StreamsStatus } from "@/database/entities/strava-activities";
+import { logger } from "@/lib/logger";
 
 import { stravaFetch, stravaOAuthFetch } from "./client";
 import type { SummaryActivity } from "./index";
@@ -222,7 +223,7 @@ async function syncAthleteActivities(
     .where(eq(athleteProfile.userId, accountRow.userId));
 
   if (!profile?.athleteCreatedAt) {
-    console.warn(
+    logger.warn(
       `[strava-sync] user=${accountRow.userId} missing athleteCreatedAt on athlete_profile, skipping`,
     );
     return null;
