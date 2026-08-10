@@ -7,6 +7,7 @@ import {
   runSyncForUser,
 } from "@/integrations/strava/sync-orchestrator";
 import { isAuthenticated } from "@/middlewares/use-auth";
+import { getActivityMetricsForUser } from "@/services/metrics/compute-activity-metrics";
 
 const emptySummary = {
   activitiesCount: 0,
@@ -80,5 +81,31 @@ export const activitiesRoutes = new Hono()
       lastStreamSyncedAt: result.lastStreamSyncedAt,
       fetchedThisRun: result.streamsFetchedThisRun,
       rateLimited: result.rateLimited,
+    });
+  })
+  .get("/:id/metrics", async (c) => {
+    const userId = c.get("user")!.id;
+    const activityId = c.req.param("id");
+    const row = await getActivityMetricsForUser(activityId, userId);
+
+    if (!row) {
+      return c.json({ message: "Metrics not found" }, 404);
+    }
+
+    return c.json({
+      activityId: row.metrics.activityId,
+      sportFamily: row.metrics.sportFamily,
+      trimpBanister: row.metrics.trimpBanister,
+      trimpEdwards: row.metrics.trimpEdwards,
+      hrTss: row.metrics.hrTss,
+      avgHr: row.metrics.avgHr,
+      maxHr: row.metrics.maxHr,
+      movingTimeS: row.metrics.movingTimeS,
+      decouplingPct: row.metrics.decouplingPct,
+      timeInZone: row.metrics.timeInZone ?? [],
+      dataQuality: row.metrics.dataQuality,
+      anchorSnapshot: row.metrics.anchorSnapshot,
+      metricsVersion: row.metrics.metricsVersion,
+      computedAt: row.metrics.computedAt.toISOString(),
     });
   });
