@@ -6,6 +6,7 @@
     "./client": "./src/client.ts"
   },
   "scripts": {
+    "build": "tsdown",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
@@ -33,6 +34,7 @@
     "@types/bun": "latest",
     "@types/pg": "^8.20.4",
     "drizzle-kit": "^0.31.10",
+    "tsdown": "^0.22.14",
     "tsx": "^4.23.9"
   }
 }
