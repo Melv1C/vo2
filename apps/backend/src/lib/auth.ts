@@ -5,7 +5,7 @@ import { ENV } from "varlock/env";
 
 import { dbWithoutLogging } from "@/database";
 import * as schema from "@/database/entities/auth";
-import { DetailedAthlete } from "@/integrations/strava";
+import type { DetailedAthlete } from "@/integrations/strava";
 import { stravaFetch } from "@/integrations/strava/client";
 import { triggerActivitySyncForUser } from "@/integrations/strava/sync-activities";
 

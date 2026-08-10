@@ -25,8 +25,6 @@ const app = new Hono()
   .get("/metrics", printMetrics)
   .route("/api", routes);
 
-export type AppType = typeof app;
-
 export default {
   port: ENV.BACKEND_PORT,
   idleTimeout: 120,
