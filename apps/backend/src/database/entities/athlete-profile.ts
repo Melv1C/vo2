@@ -11,6 +11,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import type { AnchorSource } from "@/services/metrics/types";
+
 import { user } from "./auth";
 
 export const athleteProfile = pgTable("athlete_profile", {
@@ -28,6 +30,11 @@ export const athleteProfile = pgTable("athlete_profile", {
   maxHr: integer("max_hr"),
   lthr: integer("lthr"),
   ftp: integer("ftp"),
+  thresholdPaceMps: doublePrecision("threshold_pace_mps"),
+  maxHrSource: text("max_hr_source").$type<AnchorSource>(),
+  lthrSource: text("lthr_source").$type<AnchorSource>(),
+  ftpSource: text("ftp_source").$type<AnchorSource>(),
+  thresholdPaceSource: text("threshold_pace_source").$type<AnchorSource>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

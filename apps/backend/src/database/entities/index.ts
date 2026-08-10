@@ -1,3 +1,4 @@
+export * from "./activity-metrics";
 export * from "./activity-sync-state";
 export * from "./athlete-profile";
 export * from "./auth";
