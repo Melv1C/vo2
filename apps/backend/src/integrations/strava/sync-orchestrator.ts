@@ -6,6 +6,7 @@ import { athleteProfile } from "@/database/entities/athlete-profile";
 import { account } from "@/database/entities/auth";
 import { stravaActivities, type StreamsStatus } from "@/database/entities/strava-activities";
 import { logger } from "@/lib/logger";
+import { processNewlyReadyStreams } from "@/services/metrics/sync-metrics";
 
 import { ensureValidAccessToken, type StravaAccount } from "./account";
 import { stravaRequest } from "./client";
@@ -279,9 +280,10 @@ async function drainPendingStreams(
   accessToken: string,
   limiter: StravaRateLimiter,
   budget: number,
-): Promise<{ fetched: number; rateLimited: boolean }> {
+): Promise<{ fetched: number; rateLimited: boolean; readyActivityIds: string[] }> {
   let totalFetched = 0;
   let rateLimited = false;
+  const readyActivityIds: string[] = [];
 
   while (totalFetched < budget && !rateLimited) {
     const remaining = budget - totalFetched;
@@ -296,6 +298,7 @@ async function drainPendingStreams(
     });
 
     totalFetched += result.fetched;
+    readyActivityIds.push(...result.readyActivityIds);
     rateLimited = result.rateLimited;
 
     if (result.fetched === 0) {
@@ -303,7 +306,7 @@ async function drainPendingStreams(
     }
   }
 
-  return { fetched: totalFetched, rateLimited };
+  return { fetched: totalFetched, rateLimited, readyActivityIds };
 }
 
 async function runSync(
@@ -318,6 +321,7 @@ async function runSync(
   let backfillComplete: boolean | undefined;
   let streamsFetched = 0;
   let rateLimited = false;
+  const newlyReadyActivityIds: string[] = [];
 
   const streamBudgetRef = { remaining: STREAMS_BUDGET_PER_RUN };
 
@@ -336,6 +340,7 @@ async function runSync(
       maxFetches: streamBudgetRef.remaining,
     });
     streamBudgetRef.remaining -= result.fetched;
+    newlyReadyActivityIds.push(...result.readyActivityIds);
     return { fetched: result.fetched, rateLimited: result.rateLimited };
   };
 
@@ -358,7 +363,19 @@ async function runSync(
         remainingBudget,
       );
       streamsFetched += drainResult.fetched;
+      newlyReadyActivityIds.push(...drainResult.readyActivityIds);
       rateLimited = drainResult.rateLimited;
+    }
+  }
+
+  if (newlyReadyActivityIds.length > 0) {
+    try {
+      await processNewlyReadyStreams(accountRow.userId, newlyReadyActivityIds);
+    } catch (error) {
+      logger.error("[metrics-sync] incremental compute failed", {
+        userId: accountRow.userId,
+        error,
+      });
     }
   }
 
