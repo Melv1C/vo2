@@ -1,0 +1,173 @@
+import { and, eq, gte, lte } from "drizzle-orm";
+
+import { db } from "@/database";
+import { activityMetrics } from "@/database/entities/activity-metrics";
+import {
+  activityStreams,
+  stravaActivities,
+} from "@/database/entities/strava-activities";
+import { loadAthleteContext } from "@/services/metrics/context";
+import { getUniversalModule } from "@/services/metrics/registry";
+import { sanitizeStream } from "@/services/metrics/sanitize-stream";
+import { resolveSportFamily } from "@/services/metrics/sport-family";
+import type { AnchorSnapshot, AthleteContext, RawStreamInput } from "@/services/metrics/types";
+import { METRICS_VERSION } from "@/services/metrics/types";
+
+import "./bootstrap";
+
+export type ComputeActivityResult = {
+  activityId: string;
+  computed: boolean;
+  reason?: string;
+};
+
+export type RecomputeSummary = {
+  processed: number;
+  skipped: number;
+  results: ComputeActivityResult[];
+};
+
+function buildAnchorSnapshot(athlete: AthleteContext): AnchorSnapshot {
+  return {
+    maxHr: athlete.maxHr,
+    restingHr: athlete.restingHr,
+    lthr: athlete.lthr,
+    ftp: athlete.ftp,
+    thresholdPaceMps: athlete.thresholdPaceMps,
+    weightKg: athlete.weightKg,
+    sex: athlete.sex,
+  };
+}
+
+function toRawStreamInput(stream: typeof activityStreams.$inferSelect): RawStreamInput {
+  return {
+    timeS: stream.timeS,
+    distanceM: stream.distanceM,
+    altitudeM: stream.altitudeM,
+    velocityMps: stream.velocityMps,
+    heartrate: stream.heartrate,
+    cadence: stream.cadence,
+    watts: stream.watts,
+    moving: stream.moving,
+    gradePct: stream.gradePct,
+  };
+}
+
+export async function computeAndPersistActivityMetrics(
+  activityId: string,
+): Promise<ComputeActivityResult> {
+  const [row] = await db
+    .select({
+      activity: stravaActivities,
+      stream: activityStreams,
+    })
+    .from(stravaActivities)
+    .innerJoin(activityStreams, eq(activityStreams.activityId, stravaActivities.id))
+    .where(
+      and(eq(stravaActivities.id, activityId), eq(stravaActivities.streamsStatus, "ready")),
+    );
+
+  if (!row) {
+    return { activityId, computed: false, reason: "activity_not_ready" };
+  }
+
+  const athlete = await loadAthleteContext(row.activity.userId, row.activity.startDate);
+  const sanitized = sanitizeStream(toRawStreamInput(row.stream));
+  const sportFamily = resolveSportFamily(row.activity.sportType);
+  const universal = getUniversalModule().compute({ stream: sanitized, athlete });
+
+  if (universal.movingTimeS <= 0 || universal.avgHr == null) {
+    return { activityId, computed: false, reason: "no_hr_samples" };
+  }
+
+  const computedAt = new Date();
+  const anchorSnapshot = buildAnchorSnapshot(athlete);
+
+  await db
+    .insert(activityMetrics)
+    .values({
+      activityId,
+      sportFamily,
+      trimpBanister: universal.trimpBanister,
+      trimpEdwards: universal.trimpEdwards,
+      hrTss: universal.hrTss,
+      avgHr: universal.avgHr,
+      maxHr: universal.maxHr,
+      movingTimeS: universal.movingTimeS,
+      decouplingPct: universal.decouplingPct,
+      timeInZone: universal.timeInZone,
+      dataQuality: sanitized.quality,
+      anchorSnapshot,
+      metricsVersion: METRICS_VERSION,
+      computedAt,
+    })
+    .onConflictDoUpdate({
+      target: activityMetrics.activityId,
+      set: {
+        sportFamily,
+        trimpBanister: universal.trimpBanister,
+        trimpEdwards: universal.trimpEdwards,
+        hrTss: universal.hrTss,
+        avgHr: universal.avgHr,
+        maxHr: universal.maxHr,
+        movingTimeS: universal.movingTimeS,
+        decouplingPct: universal.decouplingPct,
+        timeInZone: universal.timeInZone,
+        dataQuality: sanitized.quality,
+        anchorSnapshot,
+        metricsVersion: METRICS_VERSION,
+        computedAt,
+      },
+    });
+
+  return { activityId, computed: true };
+}
+
+export async function recomputeMetricsForUser(
+  userId: string,
+  options: { from?: Date; to?: Date } = {},
+): Promise<RecomputeSummary> {
+  const filters = [eq(stravaActivities.userId, userId), eq(stravaActivities.streamsStatus, "ready")];
+
+  if (options.from) {
+    filters.push(gte(stravaActivities.startDate, options.from));
+  }
+  if (options.to) {
+    filters.push(lte(stravaActivities.startDate, options.to));
+  }
+
+  const activities = await db
+    .select({ id: stravaActivities.id })
+    .from(stravaActivities)
+    .where(and(...filters))
+    .orderBy(stravaActivities.startDate);
+
+  const results: ComputeActivityResult[] = [];
+  let processed = 0;
+  let skipped = 0;
+
+  for (const activity of activities) {
+    const result = await computeAndPersistActivityMetrics(activity.id);
+    results.push(result);
+    if (result.computed) {
+      processed += 1;
+    } else {
+      skipped += 1;
+    }
+  }
+
+  return { processed, skipped, results };
+}
+
+export async function getActivityMetricsForUser(activityId: string, userId: string) {
+  const [row] = await db
+    .select({
+      metrics: activityMetrics,
+      activity: stravaActivities,
+    })
+    .from(activityMetrics)
+    .innerJoin(stravaActivities, eq(stravaActivities.id, activityMetrics.activityId))
+    .where(and(eq(activityMetrics.activityId, activityId), eq(stravaActivities.userId, userId)));
+
+  return row ?? null;
+}
