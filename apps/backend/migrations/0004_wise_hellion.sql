@@ -1,0 +1,1 @@
+ALTER TABLE "activity_sync_state" DROP COLUMN "streams_since";
