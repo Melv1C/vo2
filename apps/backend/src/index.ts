@@ -1,5 +1,6 @@
-import { Hono } from "hono";
+import { prometheus } from "@hono/prometheus";
 import "varlock/auto-load";
+import { Hono } from "hono";
 import { contextStorage } from "hono/context-storage";
 import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
@@ -8,6 +9,8 @@ import { ENV } from "varlock/env";
 import { logger } from "./lib/logger";
 import { routes } from "./routes";
 import "./hono-context.types";
+
+const { printMetrics, registerMetrics } = prometheus();
 
 const app = new Hono()
   .use(
@@ -18,6 +21,8 @@ const app = new Hono()
   )
   .use(contextStorage())
   .use(requestId())
+  .use("*", registerMetrics)
+  .get("/metrics", printMetrics)
   .route("/api", routes);
 
 export type AppType = typeof app;
