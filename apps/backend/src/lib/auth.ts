@@ -95,8 +95,8 @@ export const auth = betterAuth({
 
           try {
             await upsertAthleteProfileFromStrava(account.userId, account.accessToken);
-          } catch (err) {
-            logger.error(`[strava-profile] failed for user=${account.userId}`, err);
+          } catch (error) {
+            logger.error("[strava-profile] failed", { userId: account.userId, error });
           }
         },
       },
@@ -123,14 +123,14 @@ export const auth = betterAuth({
             if (stravaAccount?.accessToken) {
               try {
                 await upsertAthleteProfileFromStrava(session.userId, stravaAccount.accessToken);
-              } catch (err) {
-                logger.error(`[strava-profile] failed for user=${session.userId}`, err);
+              } catch (error) {
+                logger.error("[strava-profile] failed", { userId: session.userId, error });
               }
             }
           }
 
-          void triggerActivitySyncForUser(session.userId).catch((err) => {
-            logger.error(`[strava-sync] failed for user=${session.userId}`, err);
+          void triggerActivitySyncForUser(session.userId).catch((error) => {
+            logger.error("[strava-sync] failed", { userId: session.userId, error });
           });
         },
       },
