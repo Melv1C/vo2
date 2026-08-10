@@ -12,7 +12,10 @@ function parseSex(value: string | null): AthleteSex | null {
   return null;
 }
 
-export async function loadAthleteContext(userId: string, at: Date = new Date()): Promise<AthleteContext> {
+export async function loadAthleteContext(
+  userId: string,
+  at: Date = new Date(),
+): Promise<AthleteContext> {
   const [profile] = await db.select().from(athleteProfile).where(eq(athleteProfile.userId, userId));
 
   const weightKg = await getWeightKgAtDate(userId, at);
