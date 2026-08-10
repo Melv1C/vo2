@@ -43,6 +43,13 @@
       "when": 1786388183928,
       "tag": "0005_known_sleeper",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786388528069,
+      "tag": "0006_perfect_nextwave",
+      "breakpoints": true
     }
   ]
 }

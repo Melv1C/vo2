@@ -46,6 +46,8 @@ export const stravaActivities = pgTable(
     maxWatts: integer("max_watts"),
     kilojoules: doublePrecision("kilojoules"),
     calories: doublePrecision("calories"),
+    deviceWatts: boolean("device_watts"),
+    trainer: boolean("trainer"),
     streamsStatus: text("streams_status").$type<StreamsStatus>().notNull().default("pending"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
