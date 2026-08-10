@@ -1,20 +1,24 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@/database";
 import { activitySyncState } from "@/database/entities/activity-sync-state";
-import { account } from "@/database/entities/auth";
 import {
   activityStreams,
   stravaActivities,
   type StreamsStatus,
 } from "@/database/entities/strava-activities";
 
-import { ensureValidAccessToken, type StravaAccount } from "./account";
-import { stravaFetch } from "./client";
+import { isRateLimitError, stravaRequest } from "./client";
 import type { StreamSet } from "./index";
+import { StravaRateLimiter } from "./rate-limit";
 
-const STREAMS_PER_BATCH = 15;
-const STREAM_SYNC_COOLDOWN_MS = 30_000;
+export const STREAM_CONCURRENCY = 3;
+/**
+ * Max stream API calls per sync run.
+ * With 200 reads/15min, ~80/run leaves room for list pagination
+ * and allows ~2-3 runs before hitting the 15-min ceiling.
+ */
+export const STREAMS_BUDGET_PER_RUN = 60;
 
 const STREAM_KEYS = [
   "time",
@@ -30,10 +34,7 @@ const STREAM_KEYS = [
   "grade_smooth",
 ] as const;
 
-const streamSyncLocks = new Map<string, Promise<StreamSyncResult | null>>();
-
 export type StreamSyncResult = {
-  streamsSince: string | null;
   streamsReadyCount: number;
   streamsPendingCount: number;
   lastStreamSyncedAt: string | null;
@@ -43,31 +44,16 @@ export type StreamSyncResult = {
 
 type ActivityStreamInsert = typeof activityStreams.$inferInsert;
 
-function isRateLimitError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    "status" in error &&
-    typeof (error as { status: unknown }).status === "number" &&
-    (error as { status: number }).status === 429
-  );
-}
+export type PendingActivity = {
+  id: string;
+  stravaActivityId: string;
+};
 
-async function refreshSyncCounts(userId: string) {
-  const [counts] = await db
-    .select({
-      activitiesCount: sql<number>`count(*)::int`,
-      streamsReadyCount: sql<number>`count(*) filter (where ${stravaActivities.streamsStatus} = 'ready')::int`,
-      streamsPendingCount: sql<number>`count(*) filter (where ${stravaActivities.streamsStatus} = 'pending')::int`,
-    })
-    .from(stravaActivities)
-    .where(eq(stravaActivities.userId, userId));
-
-  return {
-    activitiesCount: counts?.activitiesCount ?? 0,
-    streamsReadyCount: counts?.streamsReadyCount ?? 0,
-    streamsPendingCount: counts?.streamsPendingCount ?? 0,
-  };
-}
+export type StreamBatchResult = {
+  fetched: number;
+  unavailable: number;
+  rateLimited: boolean;
+};
 
 function toResult(
   row: typeof activitySyncState.$inferSelect,
@@ -75,7 +61,6 @@ function toResult(
   rateLimited: boolean,
 ): StreamSyncResult {
   return {
-    streamsSince: row.streamsSince?.toISOString() ?? null,
     streamsReadyCount: row.streamsReadyCount,
     streamsPendingCount: row.streamsPendingCount,
     lastStreamSyncedAt: row.lastStreamSyncedAt?.toISOString() ?? null,
@@ -149,107 +134,219 @@ function hasStreamData(streamSet: StreamSet): boolean {
 async function fetchActivityStreams(
   accessToken: string,
   stravaActivityId: string,
+  limiter: StravaRateLimiter,
 ): Promise<StreamSet> {
-  return stravaFetch<StreamSet>(`/activities/${stravaActivityId}/streams`, {
+  return stravaRequest<StreamSet>(`/activities/${stravaActivityId}/streams`, {
     query: {
-      keys: [...STREAM_KEYS],
+      keys: STREAM_KEYS.join(","),
       key_by_type: true,
     },
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
+    limiter,
   });
 }
 
-async function markActivityStreamsStatus(activityId: string, status: StreamsStatus) {
-  await db
-    .update(stravaActivities)
-    .set({ streamsStatus: status })
-    .where(eq(stravaActivities.id, activityId));
+async function persistActivityStreamsBatch(
+  ready: ActivityStreamInsert[],
+  unavailableIds: string[],
+): Promise<void> {
+  if (ready.length > 0) {
+    await db
+      .insert(activityStreams)
+      .values(ready)
+      .onConflictDoUpdate({
+        target: activityStreams.activityId,
+        set: {
+          resolution: sql`excluded.resolution`,
+          originalSize: sql`excluded.original_size`,
+          seriesType: sql`excluded.series_type`,
+          timeS: sql`excluded.time_s`,
+          distanceM: sql`excluded.distance_m`,
+          lat: sql`excluded.lat`,
+          lng: sql`excluded.lng`,
+          altitudeM: sql`excluded.altitude_m`,
+          velocityMps: sql`excluded.velocity_mps`,
+          heartrate: sql`excluded.heartrate`,
+          cadence: sql`excluded.cadence`,
+          watts: sql`excluded.watts`,
+          tempC: sql`excluded.temp_c`,
+          moving: sql`excluded.moving`,
+          gradePct: sql`excluded.grade_pct`,
+          fetchedAt: sql`excluded.fetched_at`,
+        },
+      });
+
+    await db
+      .update(stravaActivities)
+      .set({ streamsStatus: "ready" })
+      .where(
+        inArray(
+          stravaActivities.id,
+          ready.map((row) => row.activityId),
+        ),
+      );
+  }
+
+  if (unavailableIds.length > 0) {
+    await db
+      .update(stravaActivities)
+      .set({ streamsStatus: "unavailable" })
+      .where(inArray(stravaActivities.id, unavailableIds));
+  }
 }
 
-async function persistActivityStreams(activityId: string, streamSet: StreamSet) {
-  const row = mapStreamSet(activityId, streamSet);
+type StreamFetchOutcome =
+  | { kind: "ready"; row: ActivityStreamInsert }
+  | { kind: "unavailable"; activityId: string }
+  | { kind: "rate_limited" };
 
-  await db
-    .insert(activityStreams)
-    .values(row)
-    .onConflictDoUpdate({
-      target: activityStreams.activityId,
-      set: {
-        resolution: row.resolution,
-        originalSize: row.originalSize,
-        seriesType: row.seriesType,
-        timeS: row.timeS,
-        distanceM: row.distanceM,
-        lat: row.lat,
-        lng: row.lng,
-        altitudeM: row.altitudeM,
-        velocityMps: row.velocityMps,
-        heartrate: row.heartrate,
-        cadence: row.cadence,
-        watts: row.watts,
-        tempC: row.tempC,
-        moving: row.moving,
-        gradePct: row.gradePct,
-        fetchedAt: row.fetchedAt,
-      },
-    });
+async function fetchOneStream(
+  accessToken: string,
+  activity: PendingActivity,
+  limiter: StravaRateLimiter,
+): Promise<StreamFetchOutcome> {
+  if (limiter.isNearLimit) {
+    return { kind: "rate_limited" };
+  }
 
-  await markActivityStreamsStatus(activityId, "ready");
+  try {
+    const streamSet = await fetchActivityStreams(accessToken, activity.stravaActivityId, limiter);
+
+    if (!hasStreamData(streamSet)) {
+      return { kind: "unavailable", activityId: activity.id };
+    }
+
+    return { kind: "ready", row: mapStreamSet(activity.id, streamSet) };
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      return { kind: "rate_limited" };
+    }
+
+    return { kind: "unavailable", activityId: activity.id };
+  }
 }
 
-export async function setStreamsSince(
+/**
+ * Fetch streams for a list of activities with controlled concurrency.
+ * Stops early when rate-limited or budget exhausted.
+ */
+export async function syncStreamsForActivities(
+  accessToken: string,
+  activities: PendingActivity[],
+  limiter: StravaRateLimiter,
+  options?: { maxFetches?: number },
+): Promise<StreamBatchResult> {
+  const maxFetches = options?.maxFetches ?? STREAMS_BUDGET_PER_RUN;
+  const ready: ActivityStreamInsert[] = [];
+  const unavailableIds: string[] = [];
+  let fetched = 0;
+  let rateLimited = false;
+  let cursor = 0;
+
+  async function worker(): Promise<void> {
+    while (cursor < activities.length && fetched < maxFetches && !rateLimited) {
+      if (limiter.isNearLimit) {
+        rateLimited = true;
+        return;
+      }
+
+      const index = cursor;
+      cursor += 1;
+      const activity = activities[index];
+      if (!activity) {
+        return;
+      }
+
+      const outcome = await fetchOneStream(accessToken, activity, limiter);
+
+      if (outcome.kind === "rate_limited") {
+        rateLimited = true;
+        return;
+      }
+
+      if (outcome.kind === "ready") {
+        ready.push(outcome.row);
+        fetched += 1;
+      } else {
+        unavailableIds.push(outcome.activityId);
+        fetched += 1;
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(STREAM_CONCURRENCY, activities.length) }, () =>
+    worker(),
+  );
+  await Promise.all(workers);
+
+  await persistActivityStreamsBatch(ready, unavailableIds);
+
+  return { fetched, unavailable: unavailableIds.length, rateLimited };
+}
+
+export async function loadPendingActivities(
   userId: string,
-  streamsSince: Date,
-): Promise<StreamSyncResult> {
-  await db
-    .insert(activitySyncState)
-    .values({
-      userId,
-      streamsSince,
-      streamsBackfillCursor: null,
+  limit: number,
+): Promise<PendingActivity[]> {
+  return db
+    .select({
+      id: stravaActivities.id,
+      stravaActivityId: stravaActivities.stravaActivityId,
     })
-    .onConflictDoUpdate({
-      target: activitySyncState.userId,
-      set: {
-        streamsSince,
-        streamsBackfillCursor: null,
-      },
-    });
-
-  await db
-    .update(stravaActivities)
-    .set({
-      streamsStatus: sql`case
-        when ${stravaActivities.startDate} >= ${streamsSince} then 'pending'::text
-        else 'skipped'::text
-      end`,
-    })
+    .from(stravaActivities)
     .where(
       and(
         eq(stravaActivities.userId, userId),
-        sql`${stravaActivities.streamsStatus} in ('pending', 'skipped')`,
+        eq(stravaActivities.streamsStatus, "pending"),
+        isNotNull(stravaActivities.averageHeartrate),
       ),
-    );
+    )
+    .orderBy(asc(stravaActivities.startDate))
+    .limit(limit);
+}
 
-  const counts = await refreshSyncCounts(userId);
-
-  const [row] = await db
-    .update(activitySyncState)
-    .set({
-      activitiesCount: counts.activitiesCount,
-      streamsReadyCount: counts.streamsReadyCount,
-      streamsPendingCount: counts.streamsPendingCount,
-    })
-    .where(eq(activitySyncState.userId, userId))
-    .returning();
-
-  if (!row) {
-    throw new Error("Failed to update activity sync state");
+export async function loadPendingActivitiesForStravaIds(
+  userId: string,
+  stravaActivityIds: string[],
+): Promise<PendingActivity[]> {
+  if (stravaActivityIds.length === 0) {
+    return [];
   }
 
-  return toResult(row, 0, false);
+  return db
+    .select({
+      id: stravaActivities.id,
+      stravaActivityId: stravaActivities.stravaActivityId,
+    })
+    .from(stravaActivities)
+    .where(
+      and(
+        eq(stravaActivities.userId, userId),
+        inArray(stravaActivities.stravaActivityId, stravaActivityIds),
+        eq(stravaActivities.streamsStatus, "pending"),
+        isNotNull(stravaActivities.averageHeartrate),
+      ),
+    )
+    .orderBy(asc(stravaActivities.startDate));
+}
+
+export async function refreshSyncCounts(userId: string) {
+  const [counts] = await db
+    .select({
+      activitiesCount: sql<number>`count(*)::int`,
+      streamsReadyCount: sql<number>`count(*) filter (where ${stravaActivities.streamsStatus} = 'ready')::int`,
+      streamsPendingCount: sql<number>`count(*) filter (where ${stravaActivities.streamsStatus} = 'pending')::int`,
+    })
+    .from(stravaActivities)
+    .where(eq(stravaActivities.userId, userId));
+
+  return {
+    activitiesCount: counts?.activitiesCount ?? 0,
+    streamsReadyCount: counts?.streamsReadyCount ?? 0,
+    streamsPendingCount: counts?.streamsPendingCount ?? 0,
+  };
 }
 
 export async function getStreamSyncState(userId: string): Promise<StreamSyncResult | null> {
@@ -265,118 +362,16 @@ export async function getStreamSyncState(userId: string): Promise<StreamSyncResu
   return toResult(row, 0, false);
 }
 
-async function syncStreamsBatch(
-  accountRow: StravaAccount,
-  options?: { force?: boolean; limit?: number; skipCooldown?: boolean },
-): Promise<StreamSyncResult | null> {
-  const [syncState] = await db
-    .select()
-    .from(activitySyncState)
-    .where(eq(activitySyncState.userId, accountRow.userId));
-
-  if (!syncState?.streamsSince) {
-    return syncState ? toResult(syncState, 0, false) : null;
-  }
-
-  if (
-    !options?.force &&
-    !options?.skipCooldown &&
-    syncState.lastStreamSyncedAt &&
-    Date.now() - syncState.lastStreamSyncedAt.getTime() < STREAM_SYNC_COOLDOWN_MS
-  ) {
-    return toResult(syncState, 0, false);
-  }
-
-  const accessToken = await ensureValidAccessToken(accountRow);
-  const limit = options?.limit ?? STREAMS_PER_BATCH;
-
-  const pendingActivities = await db
-    .select({
-      id: stravaActivities.id,
-      stravaActivityId: stravaActivities.stravaActivityId,
-    })
-    .from(stravaActivities)
-    .where(
-      and(
-        eq(stravaActivities.userId, accountRow.userId),
-        eq(stravaActivities.streamsStatus, "pending"),
-      ),
-    )
-    .orderBy(asc(stravaActivities.startDate))
-    .limit(limit);
-
-  let fetchedThisRun = 0;
-  let rateLimited = false;
-  let lastProcessedId: string | null = syncState.streamsBackfillCursor;
-
-  for (const activity of pendingActivities) {
-    try {
-      const streamSet = await fetchActivityStreams(accessToken, activity.stravaActivityId);
-
-      if (!hasStreamData(streamSet)) {
-        await markActivityStreamsStatus(activity.id, "unavailable");
-      } else {
-        await persistActivityStreams(activity.id, streamSet);
-        fetchedThisRun++;
-      }
-
-      lastProcessedId = activity.stravaActivityId;
-    } catch (error) {
-      if (isRateLimitError(error)) {
-        rateLimited = true;
-        break;
-      }
-
-      await markActivityStreamsStatus(activity.id, "unavailable");
-      lastProcessedId = activity.stravaActivityId;
-    }
-  }
-
-  const now = new Date();
-  const counts = await refreshSyncCounts(accountRow.userId);
-
-  const [row] = await db
-    .update(activitySyncState)
+/** One-time repair: align queue status with HR summary data. */
+export async function reconcileStreamQueue(userId: string): Promise<void> {
+  await db
+    .update(stravaActivities)
     .set({
-      streamsBackfillCursor: lastProcessedId,
-      lastStreamSyncedAt: fetchedThisRun > 0 || rateLimited ? now : syncState.lastStreamSyncedAt,
-      activitiesCount: counts.activitiesCount,
-      streamsReadyCount: counts.streamsReadyCount,
-      streamsPendingCount: counts.streamsPendingCount,
+      streamsStatus: sql<StreamsStatus>`case
+        when ${stravaActivities.streamsStatus} = 'ready' then 'ready'
+        when ${stravaActivities.averageHeartrate} is not null then 'pending'
+        else 'skipped'
+      end`,
     })
-    .where(eq(activitySyncState.userId, accountRow.userId))
-    .returning();
-
-  return row ? toResult(row, fetchedThisRun, rateLimited) : null;
-}
-
-export async function triggerStreamSyncForUser(
-  userId: string,
-  options?: { force?: boolean; limit?: number; skipCooldown?: boolean },
-): Promise<StreamSyncResult | null> {
-  const pending = streamSyncLocks.get(userId);
-  if (pending) {
-    return pending;
-  }
-
-  const run = (async () => {
-    const [stravaAccount] = await db
-      .select()
-      .from(account)
-      .where(and(eq(account.userId, userId), eq(account.providerId, "strava")));
-
-    if (!stravaAccount?.accessToken) {
-      return null;
-    }
-
-    return syncStreamsBatch(stravaAccount, options);
-  })();
-
-  streamSyncLocks.set(userId, run);
-
-  try {
-    return await run;
-  } finally {
-    streamSyncLocks.delete(userId);
-  }
+    .where(eq(stravaActivities.userId, userId));
 }
