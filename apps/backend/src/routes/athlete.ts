@@ -14,19 +14,13 @@ import {
   updateAthleteProfile$,
   updateAthleteZones$,
 } from "@/schemas/athlete";
-import {
-  appendWeightSample,
-  computeBmi,
-  computeBsa,
-} from "@/services/athlete/body-metrics";
+import { appendWeightSample, computeBmi, computeBsa } from "@/services/athlete/body-metrics";
 import { estimateAnchorsFromHistory } from "@/services/athlete/estimate-anchors";
 import type { AnchorSource } from "@/services/metrics/types";
 
 const ANCHOR_FIELDS = ["maxHr", "restingHr", "lthr", "ftp", "thresholdPaceMps"] as const;
 
-function toProfileResponse(
-  profile: typeof athleteProfile.$inferSelect,
-): AthleteProfileResponse {
+function toProfileResponse(profile: typeof athleteProfile.$inferSelect): AthleteProfileResponse {
   const bmi =
     profile.weightKg != null && profile.heightCm != null
       ? Number(computeBmi(profile.weightKg, profile.heightCm).toFixed(2))
@@ -65,7 +59,10 @@ function emptyZonesResponse(): AthleteZonesResponse {
 }
 
 async function ensureProfile(userId: string): Promise<typeof athleteProfile.$inferSelect> {
-  const [existing] = await db.select().from(athleteProfile).where(eq(athleteProfile.userId, userId));
+  const [existing] = await db
+    .select()
+    .from(athleteProfile)
+    .where(eq(athleteProfile.userId, userId));
 
   if (existing) {
     return existing;

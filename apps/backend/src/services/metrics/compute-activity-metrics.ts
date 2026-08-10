@@ -2,15 +2,17 @@ import { and, eq, gte, lte } from "drizzle-orm";
 
 import { db } from "@/database";
 import { activityMetrics } from "@/database/entities/activity-metrics";
-import {
-  activityStreams,
-  stravaActivities,
-} from "@/database/entities/strava-activities";
+import { activityStreams, stravaActivities } from "@/database/entities/strava-activities";
 import { loadAthleteContext } from "@/services/metrics/context";
-import { getUniversalModule } from "@/services/metrics/registry";
+import { getSportModule, getUniversalModule } from "@/services/metrics/registry";
 import { sanitizeStream } from "@/services/metrics/sanitize-stream";
 import { resolveSportFamily } from "@/services/metrics/sport-family";
-import type { AnchorSnapshot, AthleteContext, RawStreamInput } from "@/services/metrics/types";
+import type {
+  AnchorSnapshot,
+  AthleteContext,
+  RawStreamInput,
+  SportPayload,
+} from "@/services/metrics/types";
 import { METRICS_VERSION } from "@/services/metrics/types";
 
 import "./bootstrap";
@@ -63,9 +65,7 @@ export async function computeAndPersistActivityMetrics(
     })
     .from(stravaActivities)
     .innerJoin(activityStreams, eq(activityStreams.activityId, stravaActivities.id))
-    .where(
-      and(eq(stravaActivities.id, activityId), eq(stravaActivities.streamsStatus, "ready")),
-    );
+    .where(and(eq(stravaActivities.id, activityId), eq(stravaActivities.streamsStatus, "ready")));
 
   if (!row) {
     return { activityId, computed: false, reason: "activity_not_ready" };
@@ -79,6 +79,22 @@ export async function computeAndPersistActivityMetrics(
   if (universal.movingTimeS <= 0 || universal.avgHr == null) {
     return { activityId, computed: false, reason: "no_hr_samples" };
   }
+
+  const sportModule = getSportModule(sportFamily);
+  const sportContext = {
+    stream: sanitized,
+    athlete,
+    sportFamily,
+    deviceWatts: row.activity.deviceWatts === true,
+  };
+
+  const sportResult =
+    sportModule?.canCompute(sportContext) === true ? sportModule.compute(sportContext) : {};
+
+  const decouplingPct = sportResult.decouplingPct ?? universal.decouplingPct;
+  const sportPayload: SportPayload | null = sportResult.sportPayload ?? null;
+  const energyKcal = sportResult.energyKcal ?? null;
+  const weightKgUsed = athlete.weightKg;
 
   const computedAt = new Date();
   const anchorSnapshot = buildAnchorSnapshot(athlete);
@@ -94,8 +110,11 @@ export async function computeAndPersistActivityMetrics(
       avgHr: universal.avgHr,
       maxHr: universal.maxHr,
       movingTimeS: universal.movingTimeS,
-      decouplingPct: universal.decouplingPct,
+      decouplingPct,
       timeInZone: universal.timeInZone,
+      energyKcal,
+      weightKgUsed,
+      sportPayload,
       dataQuality: sanitized.quality,
       anchorSnapshot,
       metricsVersion: METRICS_VERSION,
@@ -111,8 +130,11 @@ export async function computeAndPersistActivityMetrics(
         avgHr: universal.avgHr,
         maxHr: universal.maxHr,
         movingTimeS: universal.movingTimeS,
-        decouplingPct: universal.decouplingPct,
+        decouplingPct,
         timeInZone: universal.timeInZone,
+        energyKcal,
+        weightKgUsed,
+        sportPayload,
         dataQuality: sanitized.quality,
         anchorSnapshot,
         metricsVersion: METRICS_VERSION,
@@ -127,7 +149,10 @@ export async function recomputeMetricsForUser(
   userId: string,
   options: { from?: Date; to?: Date } = {},
 ): Promise<RecomputeSummary> {
-  const filters = [eq(stravaActivities.userId, userId), eq(stravaActivities.streamsStatus, "ready")];
+  const filters = [
+    eq(stravaActivities.userId, userId),
+    eq(stravaActivities.streamsStatus, "ready"),
+  ];
 
   if (options.from) {
     filters.push(gte(stravaActivities.startDate, options.from));

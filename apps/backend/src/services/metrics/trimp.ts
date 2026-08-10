@@ -27,11 +27,7 @@ function banisterExponent(sex: AthleteSex | null): number {
   return BANISTER_B[sex ?? "M"];
 }
 
-export function heartRateReserve(
-  hr: number,
-  restingHr: number,
-  maxHr: number,
-): number {
+export function heartRateReserve(hr: number, restingHr: number, maxHr: number): number {
   const reserve = maxHr - restingHr;
   if (reserve <= 0) {
     return 0;
@@ -125,11 +121,7 @@ export function computeEdwardsTrimp(samples: HrSample[], maxHr: number): number 
   return total;
 }
 
-export function computeHrTss(
-  avgHr: number,
-  movingTimeS: number,
-  lthr: number,
-): number | null {
+export function computeHrTss(avgHr: number, movingTimeS: number, lthr: number): number | null {
   if (lthr <= 0 || movingTimeS <= 0) {
     return null;
   }
@@ -179,7 +171,7 @@ export function computeVelocityDecoupling(samples: HrSample[]): number | null {
     return null;
   }
 
-  return ((efFirst / efSecond) - 1) * 100;
+  return (efFirst / efSecond - 1) * 100;
 }
 
 function summarizeHr(samples: HrSample[]): { avgHr: number | null; maxHr: number | null } {
@@ -214,8 +206,7 @@ export function computeUniversalMetrics(ctx: UniversalComputeContext): Universal
       ? computeBanisterTrimp(samples, restingHr, maxHr, sex)
       : null;
   const trimpEdwards = maxHr != null ? computeEdwardsTrimp(samples, maxHr) : null;
-  const hrTss =
-    avgHr != null && lthr != null ? computeHrTss(avgHr, movingTimeS, lthr) : null;
+  const hrTss = avgHr != null && lthr != null ? computeHrTss(avgHr, movingTimeS, lthr) : null;
   const timeInZone = maxHr != null ? computeHrTimeInZone(samples, maxHr) : [];
   const decouplingPct = computeVelocityDecoupling(samples);
 

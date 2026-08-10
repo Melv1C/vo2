@@ -2,10 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/database";
 import { athleteProfile } from "@/database/entities/athlete-profile";
-import {
-  activityStreams,
-  stravaActivities,
-} from "@/database/entities/strava-activities";
+import { activityStreams, stravaActivities } from "@/database/entities/strava-activities";
 import {
   bestRollingMean,
   confidenceForWindow,
@@ -39,9 +36,7 @@ const LTHR_WINDOW_S = 20 * 60;
 const FTP_WINDOW_S = 20 * 60;
 const PACE_WINDOW_S = 20 * 60;
 
-function hrSeriesFromSanitized(
-  input: RawStreamInput,
-): SeriesPoint[] {
+function hrSeriesFromSanitized(input: RawStreamInput): SeriesPoint[] {
   const sanitized = sanitizeStream(input);
   const points: SeriesPoint[] = [];
 
@@ -226,7 +221,9 @@ export async function estimateAnchorsFromHistory(userId: string): Promise<Anchor
 
   const storedMaxHr = profile?.maxHr ?? null;
   const maxHrDriftSuggested =
-    maxHr != null && storedMaxHr != null ? maxHr.value > storedMaxHr : maxHr != null && storedMaxHr == null;
+    maxHr != null && storedMaxHr != null
+      ? maxHr.value > storedMaxHr
+      : maxHr != null && storedMaxHr == null;
 
   return {
     maxHr,
