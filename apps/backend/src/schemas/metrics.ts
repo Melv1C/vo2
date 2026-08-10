@@ -25,7 +25,7 @@ export const dailyTrainingLoadPoint$ = z.object({
 });
 
 export const recomputeMetricsQuery$ = z.object({
-  scope: z.literal("all").optional().default("all"),
+  scope: z.enum(["all", "stale"]).optional().default("all"),
   from: z.iso.date().optional(),
   to: z.iso.date().optional(),
 });

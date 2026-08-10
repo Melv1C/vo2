@@ -37,6 +37,7 @@ export const metricsRoutes = new Hono()
     });
 
     const summary = await recomputeMetricsForUser(userId, {
+      scope: query.scope,
       from: query.from ? new Date(`${query.from}T00:00:00.000Z`) : undefined,
       to: query.to ? new Date(`${query.to}T23:59:59.999Z`) : undefined,
     });

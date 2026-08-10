@@ -1,14 +1,16 @@
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lte, sql } from "drizzle-orm";
 
 import { db } from "@/database";
 import { activityMetrics, dailyTrainingLoad } from "@/database/entities/activity-metrics";
 import { stravaActivities } from "@/database/entities/strava-activities";
 import { buildDailyLoadSeries } from "@/services/metrics/training-load";
 
-export async function rebuildDailyTrainingLoad(userId: string): Promise<number> {
-  const rows = await db
+const activityLocalDate = sql<string>`coalesce(date(${stravaActivities.startDateLocal}), date(${stravaActivities.startDate}))`;
+
+async function loadDailyAggregates(userId: string) {
+  return db
     .select({
-      date: sql<string>`coalesce(date(${stravaActivities.startDateLocal}), date(${stravaActivities.startDate}))`,
+      date: activityLocalDate,
       trainingLoad: sql<number>`coalesce(sum(${activityMetrics.trainingLoad}), 0)`,
       activityCount: sql<number>`count(*)::int`,
     })
@@ -17,8 +19,15 @@ export async function rebuildDailyTrainingLoad(userId: string): Promise<number> 
     .where(
       and(eq(stravaActivities.userId, userId), sql`${activityMetrics.trainingLoad} is not null`),
     )
-    .groupBy(sql`coalesce(date(${stravaActivities.startDateLocal}), date(${stravaActivities.startDate}))`)
-    .orderBy(sql`coalesce(date(${stravaActivities.startDateLocal}), date(${stravaActivities.startDate}))`);
+    .groupBy(activityLocalDate)
+    .orderBy(activityLocalDate);
+}
+
+export async function rebuildDailyTrainingLoad(
+  userId: string,
+  fromDate?: string,
+): Promise<number> {
+  const rows = await loadDailyAggregates(userId);
 
   if (rows.length === 0) {
     await db.delete(dailyTrainingLoad).where(eq(dailyTrainingLoad.userId, userId));
@@ -33,14 +42,22 @@ export async function rebuildDailyTrainingLoad(userId: string): Promise<number> 
     })),
   );
 
-  await db.delete(dailyTrainingLoad).where(eq(dailyTrainingLoad.userId, userId));
+  const upsertRows = fromDate ? series.filter((row) => row.date >= fromDate) : series;
 
-  if (series.length === 0) {
+  if (upsertRows.length === 0) {
     return 0;
   }
 
+  if (fromDate) {
+    await db
+      .delete(dailyTrainingLoad)
+      .where(and(eq(dailyTrainingLoad.userId, userId), gte(dailyTrainingLoad.date, fromDate)));
+  } else {
+    await db.delete(dailyTrainingLoad).where(eq(dailyTrainingLoad.userId, userId));
+  }
+
   await db.insert(dailyTrainingLoad).values(
-    series.map((row) => ({
+    upsertRows.map((row) => ({
       userId,
       date: row.date,
       trainingLoad: row.trainingLoad,
@@ -52,7 +69,7 @@ export async function rebuildDailyTrainingLoad(userId: string): Promise<number> 
     })),
   );
 
-  return series.length;
+  return upsertRows.length;
 }
 
 export async function getDailyTrainingLoadSeries(

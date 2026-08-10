@@ -1,4 +1,4 @@
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lte, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/database";
 import { activityMetrics } from "@/database/entities/activity-metrics";
@@ -176,12 +176,21 @@ export async function computeAndPersistActivityMetrics(
 
 export async function recomputeMetricsForUser(
   userId: string,
-  options: { from?: Date; to?: Date } = {},
+  options: { from?: Date; to?: Date; scope?: "all" | "stale" } = {},
 ): Promise<RecomputeSummary> {
   const filters = [
     eq(stravaActivities.userId, userId),
     eq(stravaActivities.streamsStatus, "ready"),
   ];
+
+  if (options.scope === "stale") {
+    filters.push(
+      or(
+        sql`${activityMetrics.activityId} is null`,
+        lt(activityMetrics.metricsVersion, METRICS_VERSION),
+      )!,
+    );
+  }
 
   if (options.from) {
     filters.push(gte(stravaActivities.startDate, options.from));
@@ -193,6 +202,7 @@ export async function recomputeMetricsForUser(
   const activities = await db
     .select({ id: stravaActivities.id })
     .from(stravaActivities)
+    .leftJoin(activityMetrics, eq(activityMetrics.activityId, stravaActivities.id))
     .where(and(...filters))
     .orderBy(stravaActivities.startDate);
 
@@ -211,7 +221,8 @@ export async function recomputeMetricsForUser(
   }
 
   if (processed > 0) {
-    await rebuildDailyTrainingLoad(userId);
+    const fromDate = options.from?.toISOString().slice(0, 10);
+    await rebuildDailyTrainingLoad(userId, fromDate);
   }
 
   return { processed, skipped, results };

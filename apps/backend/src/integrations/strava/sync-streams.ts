@@ -53,6 +53,7 @@ export type StreamBatchResult = {
   fetched: number;
   unavailable: number;
   rateLimited: boolean;
+  readyActivityIds: string[];
 };
 
 function toResult(
@@ -283,7 +284,12 @@ export async function syncStreamsForActivities(
 
   await persistActivityStreamsBatch(ready, unavailableIds);
 
-  return { fetched, unavailable: unavailableIds.length, rateLimited };
+  return {
+    fetched,
+    unavailable: unavailableIds.length,
+    rateLimited,
+    readyActivityIds: ready.map((row) => row.activityId),
+  };
 }
 
 export async function loadPendingActivities(
