@@ -1,5 +1,29 @@
 import * as z from "zod";
 
+export const crossCheckResult$ = z.object({
+  tssVsHrtssPct: z.number().nullable(),
+  rtssVsHrtssPct: z.number().nullable(),
+  banisterVsEdwardsPct: z.number().nullable(),
+  decouplingSanity: z.boolean(),
+  coverageOk: z.boolean(),
+  downgraded: z.boolean(),
+});
+
+export const dailyMetricsQuery$ = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+});
+
+export const dailyTrainingLoadPoint$ = z.object({
+  date: z.string(),
+  trainingLoad: z.number(),
+  ctl: z.number(),
+  atl: z.number(),
+  tsb: z.number(),
+  isRamping: z.boolean(),
+  activityCount: z.number().int(),
+});
+
 export const recomputeMetricsQuery$ = z.object({
   scope: z.literal("all").optional().default("all"),
   from: z.iso.date().optional(),
@@ -55,6 +79,8 @@ export const anchorSnapshot$ = z.object({
 export const activityMetricsResponse$ = z.object({
   activityId: z.uuid(),
   sportFamily: z.enum(["cycling", "running", "walking", "other"]),
+  trainingLoad: z.number().nullable(),
+  loadSource: z.enum(["tss", "r_tss", "hr_tss", "trimp_equiv"]).nullable(),
   trimpBanister: z.number().nullable(),
   trimpEdwards: z.number().nullable(),
   hrTss: z.number().nullable(),
@@ -66,6 +92,7 @@ export const activityMetricsResponse$ = z.object({
   energyKcal: z.number().nullable(),
   weightKgUsed: z.number().nullable(),
   sportPayload: sportPayload$.nullable(),
+  crossChecks: crossCheckResult$.nullable(),
   dataQuality: dataQualityReport$,
   anchorSnapshot: anchorSnapshot$,
   metricsVersion: z.number().int(),

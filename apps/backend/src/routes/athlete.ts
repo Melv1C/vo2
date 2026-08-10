@@ -16,6 +16,8 @@ import {
 } from "@/schemas/athlete";
 import { appendWeightSample, computeBmi, computeBsa } from "@/services/athlete/body-metrics";
 import { estimateAnchorsFromHistory } from "@/services/athlete/estimate-anchors";
+import { loadAthleteContext } from "@/services/metrics/context";
+import { computeAnchorCrossChecks } from "@/services/metrics/cross-check";
 import type { AnchorSource } from "@/services/metrics/types";
 
 const ANCHOR_FIELDS = ["maxHr", "restingHr", "lthr", "ftp", "thresholdPaceMps"] as const;
@@ -145,6 +147,12 @@ export const athleteRoutes = new Hono()
     await ensureProfile(userId);
     const estimates = await estimateAnchorsFromHistory(userId);
     return c.json(estimates);
+  })
+  .get("/cross-checks", async (c) => {
+    const userId = c.get("user")!.id;
+    await ensureProfile(userId);
+    const athlete = await loadAthleteContext(userId);
+    return c.json(computeAnchorCrossChecks(athlete));
   })
   .get("/zones", async (c) => {
     const userId = c.get("user")!.id;
