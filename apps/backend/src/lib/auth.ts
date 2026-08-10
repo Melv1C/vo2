@@ -74,7 +74,7 @@ export const auth = betterAuth({
       create: {
         after: async (session) => {
           void triggerActivitySyncForUser(session.userId).catch((err) => {
-            console.error(`[strava-sync] failed for user=${session.userId}`, err);
+            logger.error(`[strava-sync] failed for user=${session.userId}`, err);
           });
         },
       },
