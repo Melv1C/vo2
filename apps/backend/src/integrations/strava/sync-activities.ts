@@ -1,5 +1,4 @@
 import { and, eq, sql } from "drizzle-orm";
-import { ENV } from "varlock/env";
 
 import { db } from "@/database";
 import { activitySyncState } from "@/database/entities/activity-sync-state";
@@ -8,10 +7,10 @@ import { account } from "@/database/entities/auth";
 import { stravaActivities, type StreamsStatus } from "@/database/entities/strava-activities";
 import { logger } from "@/lib/logger";
 
-import { stravaFetch, stravaOAuthFetch } from "./client";
+import { ensureValidAccessToken, type StravaAccount } from "./account";
+import { stravaFetch } from "./client";
 import type { SummaryActivity } from "./index";
 
-const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const ACTIVITIES_PER_PAGE = 200;
 const SYNC_COOLDOWN_MS = 30_000;
 
@@ -21,28 +20,6 @@ export type ActivitySyncSummary = {
   activitiesCount: number;
   lastFetchedAt: string | null;
   newActivities: number;
-};
-
-type StravaAccount = {
-  id: string;
-  userId: string;
-  accessToken?: string | null;
-  refreshToken?: string | null;
-  accessTokenExpiresAt?: Date | null;
-};
-
-type StravaTokenResponse = {
-  access_token: string;
-  refresh_token: string;
-  expires_at: number;
-};
-
-/** OpenAPI SummaryActivity omits several fields Strava returns on list. */
-type StravaListActivity = SummaryActivity & {
-  average_heartrate?: number;
-  max_heartrate?: number;
-  average_cadence?: number;
-  calories?: number;
 };
 
 type ActivityInsert = typeof stravaActivities.$inferInsert;
@@ -57,6 +34,14 @@ function toSummary(
     newActivities,
   };
 }
+
+/** OpenAPI SummaryActivity omits several fields Strava returns on list. */
+type StravaListActivity = SummaryActivity & {
+  average_heartrate?: number;
+  max_heartrate?: number;
+  average_cadence?: number;
+  calories?: number;
+};
 
 function streamsStatusFor(startDate: Date, streamsSince: Date | null | undefined): StreamsStatus {
   if (!streamsSince) {
@@ -110,46 +95,6 @@ function mapActivity(
     calories: activity.calories ?? null,
     streamsStatus: streamsStatusFor(startDate, streamsSince),
   };
-}
-
-async function refreshAccessToken(accountRow: StravaAccount): Promise<string> {
-  if (!accountRow.refreshToken) {
-    throw new Error("Missing Strava refresh token");
-  }
-
-  const tokens = await stravaOAuthFetch<StravaTokenResponse>("/oauth/token", {
-    method: "POST",
-    body: new URLSearchParams({
-      client_id: ENV.STRAVA_CLIENT_ID,
-      client_secret: ENV.STRAVA_CLIENT_SECRET,
-      grant_type: "refresh_token",
-      refresh_token: accountRow.refreshToken,
-    }),
-  });
-
-  await db
-    .update(account)
-    .set({
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      accessTokenExpiresAt: new Date(tokens.expires_at * 1000),
-    })
-    .where(eq(account.id, accountRow.id));
-
-  return tokens.access_token;
-}
-
-async function ensureValidAccessToken(accountRow: StravaAccount): Promise<string> {
-  if (!accountRow.accessToken) {
-    throw new Error("Missing Strava access token");
-  }
-
-  const expiresAt = accountRow.accessTokenExpiresAt?.getTime();
-  if (expiresAt && expiresAt - TOKEN_EXPIRY_BUFFER_MS > Date.now()) {
-    return accountRow.accessToken;
-  }
-
-  return refreshAccessToken(accountRow);
 }
 
 async function batchUpsertActivities(rows: ActivityInsert[]): Promise<number> {
@@ -223,9 +168,9 @@ async function syncAthleteActivities(
     .where(eq(athleteProfile.userId, accountRow.userId));
 
   if (!profile?.athleteCreatedAt) {
-    logger.warn(
-      `[strava-sync] user=${accountRow.userId} missing athleteCreatedAt on athlete_profile, skipping`,
-    );
+    logger.warn("[strava-sync] missing athleteCreatedAt on athlete_profile, skipping", {
+      userId: accountRow.userId,
+    });
     return null;
   }
 
