@@ -13,6 +13,7 @@ jobs:
   docker:
     name: Build & Push ${{ matrix.app }} Staging Image
     needs: ci
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip staging]')
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -55,6 +56,7 @@ jobs:
   deploy:
     name: Deploy ${{ matrix.app }} to Staging
     needs: docker
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip staging]')
     runs-on: ubuntu-latest
     strategy:
       matrix:
