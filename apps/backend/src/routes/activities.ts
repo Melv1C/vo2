@@ -95,6 +95,8 @@ export const activitiesRoutes = new Hono()
     return c.json({
       activityId: row.metrics.activityId,
       sportFamily: row.metrics.sportFamily,
+      trainingLoad: row.metrics.trainingLoad,
+      loadSource: row.metrics.loadSource,
       trimpBanister: row.metrics.trimpBanister,
       trimpEdwards: row.metrics.trimpEdwards,
       hrTss: row.metrics.hrTss,
@@ -106,6 +108,7 @@ export const activitiesRoutes = new Hono()
       energyKcal: row.metrics.energyKcal,
       weightKgUsed: row.metrics.weightKgUsed,
       sportPayload: row.metrics.sportPayload,
+      crossChecks: row.metrics.crossChecks,
       dataQuality: row.metrics.dataQuality,
       anchorSnapshot: row.metrics.anchorSnapshot,
       metricsVersion: row.metrics.metricsVersion,

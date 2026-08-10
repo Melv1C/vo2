@@ -4,7 +4,10 @@ import { db } from "@/database";
 import { activityMetrics } from "@/database/entities/activity-metrics";
 import { activityStreams, stravaActivities } from "@/database/entities/strava-activities";
 import { loadAthleteContext } from "@/services/metrics/context";
+import { computeActivityCrossChecks } from "@/services/metrics/cross-check";
+import { resolveTrainingLoad } from "@/services/metrics/load-resolver";
 import { getSportModule, getUniversalModule } from "@/services/metrics/registry";
+import { rebuildDailyTrainingLoad } from "@/services/metrics/rebuild-daily-training-load";
 import { sanitizeStream } from "@/services/metrics/sanitize-stream";
 import { resolveSportFamily } from "@/services/metrics/sport-family";
 import type {
@@ -99,11 +102,33 @@ export async function computeAndPersistActivityMetrics(
   const computedAt = new Date();
   const anchorSnapshot = buildAnchorSnapshot(athlete);
 
+  const crossChecks = computeActivityCrossChecks({
+    trimpBanister: universal.trimpBanister,
+    trimpEdwards: universal.trimpEdwards,
+    hrTss: universal.hrTss,
+    decouplingPct,
+    dataQuality: sanitized.quality,
+    sportFamily,
+    sportPayload,
+  });
+
+  const load = resolveTrainingLoad({
+    sportFamily,
+    deviceWatts: row.activity.deviceWatts === true,
+    trimpBanister: universal.trimpBanister,
+    hrTss: universal.hrTss,
+    sportPayload,
+    anchorSnapshot,
+    crossChecks,
+  });
+
   await db
     .insert(activityMetrics)
     .values({
       activityId,
       sportFamily,
+      trainingLoad: load.trainingLoad,
+      loadSource: load.loadSource,
       trimpBanister: universal.trimpBanister,
       trimpEdwards: universal.trimpEdwards,
       hrTss: universal.hrTss,
@@ -116,6 +141,7 @@ export async function computeAndPersistActivityMetrics(
       weightKgUsed,
       sportPayload,
       dataQuality: sanitized.quality,
+      crossChecks: load.crossChecks,
       anchorSnapshot,
       metricsVersion: METRICS_VERSION,
       computedAt,
@@ -124,6 +150,8 @@ export async function computeAndPersistActivityMetrics(
       target: activityMetrics.activityId,
       set: {
         sportFamily,
+        trainingLoad: load.trainingLoad,
+        loadSource: load.loadSource,
         trimpBanister: universal.trimpBanister,
         trimpEdwards: universal.trimpEdwards,
         hrTss: universal.hrTss,
@@ -136,6 +164,7 @@ export async function computeAndPersistActivityMetrics(
         weightKgUsed,
         sportPayload,
         dataQuality: sanitized.quality,
+        crossChecks: load.crossChecks,
         anchorSnapshot,
         metricsVersion: METRICS_VERSION,
         computedAt,
@@ -179,6 +208,10 @@ export async function recomputeMetricsForUser(
     } else {
       skipped += 1;
     }
+  }
+
+  if (processed > 0) {
+    await rebuildDailyTrainingLoad(userId);
   }
 
   return { processed, skipped, results };
