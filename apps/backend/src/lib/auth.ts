@@ -9,7 +9,7 @@ import { athleteProfile } from "@/database/entities/athlete-profile";
 import * as schema from "@/database/entities/auth";
 import type { DetailedAthlete } from "@/integrations/strava";
 import { stravaFetch } from "@/integrations/strava/client";
-import { triggerActivitySyncForUser } from "@/integrations/strava/sync-activities";
+import { kickBackgroundSync } from "@/integrations/strava/sync-orchestrator";
 import { logger } from "@/lib/logger";
 
 async function upsertAthleteProfileFromStrava(userId: string, accessToken: string) {
@@ -129,9 +129,7 @@ export const auth = betterAuth({
             }
           }
 
-          void triggerActivitySyncForUser(session.userId).catch((error) => {
-            logger.error("[strava-sync] failed", { userId: session.userId, error });
-          });
+          kickBackgroundSync(session.userId);
         },
       },
     },
