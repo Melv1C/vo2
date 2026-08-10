@@ -1,14 +1,39 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, genericOAuth } from "better-auth/plugins";
+import { and, eq } from "drizzle-orm";
 import { ENV } from "varlock/env";
 
-import { dbWithoutLogging } from "@/database";
+import { db, dbWithoutLogging } from "@/database";
+import { athleteProfile } from "@/database/entities/athlete-profile";
 import * as schema from "@/database/entities/auth";
 import type { DetailedAthlete } from "@/integrations/strava";
 import { stravaFetch } from "@/integrations/strava/client";
 import { triggerActivitySyncForUser } from "@/integrations/strava/sync-activities";
 import { logger } from "@/lib/logger";
+
+async function upsertAthleteProfileFromStrava(userId: string, accessToken: string) {
+  const athlete = await stravaFetch<DetailedAthlete>("/athlete", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  await db
+    .insert(athleteProfile)
+    .values({
+      userId,
+      athleteCreatedAt: athlete.created_at ? new Date(athlete.created_at) : undefined,
+      sex: athlete.sex ?? null,
+    })
+    .onConflictDoUpdate({
+      target: athleteProfile.userId,
+      set: {
+        athleteCreatedAt: athlete.created_at ? new Date(athlete.created_at) : undefined,
+        sex: athlete.sex ?? null,
+      },
+    });
+}
 
 export const auth = betterAuth({
   database: drizzleAdapter(dbWithoutLogging, {
@@ -16,12 +41,6 @@ export const auth = betterAuth({
     schema: schema,
   }),
   trustedOrigins: [ENV.FRONTEND_URL],
-  user: {
-    additionalFields: {
-      athleteCreatedAt: { type: "date", required: false, input: true },
-      sex: { type: "string", required: false, input: true },
-    },
-  },
   plugins: [
     admin(),
     genericOAuth({
@@ -40,8 +59,6 @@ export const auth = betterAuth({
               email: profile.email,
               image: profile.image,
               emailVerified: profile.emailVerified,
-              athleteCreatedAt: profile.athleteCreatedAt,
-              sex: profile.sex,
             };
           },
 
@@ -62,8 +79,6 @@ export const auth = betterAuth({
               email: `${athlete.id}@strava.local`,
               image: athlete.profile,
               emailVerified: false,
-              athleteCreatedAt: athlete.created_at ? new Date(athlete.created_at) : undefined,
-              sex: athlete.sex,
             };
           },
         },
@@ -71,9 +86,49 @@ export const auth = betterAuth({
     }),
   ],
   databaseHooks: {
+    account: {
+      create: {
+        after: async (account) => {
+          if (account.providerId !== "strava" || !account.accessToken) {
+            return;
+          }
+
+          try {
+            await upsertAthleteProfileFromStrava(account.userId, account.accessToken);
+          } catch (err) {
+            console.error(`[strava-profile] failed for user=${account.userId}`, err);
+          }
+        },
+      },
+    },
     session: {
       create: {
         after: async (session) => {
+          const [profile] = await db
+            .select()
+            .from(athleteProfile)
+            .where(eq(athleteProfile.userId, session.userId));
+
+          if (!profile) {
+            const [stravaAccount] = await db
+              .select()
+              .from(schema.account)
+              .where(
+                and(
+                  eq(schema.account.userId, session.userId),
+                  eq(schema.account.providerId, "strava"),
+                ),
+              );
+
+            if (stravaAccount?.accessToken) {
+              try {
+                await upsertAthleteProfileFromStrava(session.userId, stravaAccount.accessToken);
+              } catch (err) {
+                console.error(`[strava-profile] failed for user=${session.userId}`, err);
+              }
+            }
+          }
+
           void triggerActivitySyncForUser(session.userId).catch((err) => {
             logger.error(`[strava-sync] failed for user=${session.userId}`, err);
           });
