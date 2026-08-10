@@ -8,6 +8,7 @@ import { useLogger } from "@/middlewares/use-logger";
 import { activitiesRoutes } from "./activities";
 import { athleteRoutes } from "./athlete";
 import { healthRoutes } from "./health";
+import { metricsRoutes } from "./metrics";
 
 export const routes = new Hono()
   .use(useAuth)
@@ -17,6 +18,7 @@ export const routes = new Hono()
   .route("/health", healthRoutes)
   .route("/activities", activitiesRoutes)
   .route("/athlete", athleteRoutes)
+  .route("/metrics", metricsRoutes)
   .onError((error, c) => {
     logger.error("Unhandled error occurred", { error });
     return c.json({ message: "Internal Server Error" }, 500);
