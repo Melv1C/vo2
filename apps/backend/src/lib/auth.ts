@@ -8,6 +8,7 @@ import * as schema from "@/database/entities/auth";
 import type { DetailedAthlete } from "@/integrations/strava";
 import { stravaFetch } from "@/integrations/strava/client";
 import { triggerActivitySyncForUser } from "@/integrations/strava/sync-activities";
+import { logger } from "@/lib/logger";
 
 export const auth = betterAuth({
   database: drizzleAdapter(dbWithoutLogging, {
