@@ -96,7 +96,7 @@ export const auth = betterAuth({
           try {
             await upsertAthleteProfileFromStrava(account.userId, account.accessToken);
           } catch (err) {
-            console.error(`[strava-profile] failed for user=${account.userId}`, err);
+            logger.error(`[strava-profile] failed for user=${account.userId}`, err);
           }
         },
       },
@@ -124,7 +124,7 @@ export const auth = betterAuth({
               try {
                 await upsertAthleteProfileFromStrava(session.userId, stravaAccount.accessToken);
               } catch (err) {
-                console.error(`[strava-profile] failed for user=${session.userId}`, err);
+                logger.error(`[strava-profile] failed for user=${session.userId}`, err);
               }
             }
           }
