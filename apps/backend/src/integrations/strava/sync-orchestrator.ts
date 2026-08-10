@@ -45,6 +45,8 @@ type StravaListActivity = SummaryActivity & {
   max_heartrate?: number;
   average_cadence?: number;
   calories?: number;
+  device_watts?: boolean;
+  trainer?: boolean;
 };
 
 type RunSyncOptions = {
@@ -114,6 +116,8 @@ function mapActivity(userId: string, activity: StravaListActivity): ActivityInse
     maxWatts: activity.max_watts ?? null,
     kilojoules: activity.kilojoules ?? null,
     calories: activity.calories ?? null,
+    deviceWatts: activity.device_watts ?? null,
+    trainer: activity.trainer ?? null,
     streamsStatus: streamsStatusFor(activity.average_heartrate ?? null),
   };
 }
@@ -152,6 +156,8 @@ async function batchUpsertActivities(rows: ActivityInsert[]): Promise<number> {
         maxWatts: sql`excluded.max_watts`,
         kilojoules: sql`excluded.kilojoules`,
         calories: sql`excluded.calories`,
+        deviceWatts: sql`excluded.device_watts`,
+        trainer: sql`excluded.trainer`,
         streamsStatus: sql`case
           when ${stravaActivities.streamsStatus} = 'ready' then 'ready'
           when excluded.average_heartrate is not null then 'pending'
