@@ -1,15 +1,11 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardHeader } from "@repo/ui/components/ui/card";
-import { Input } from "@repo/ui/components/ui/input";
-import { Label } from "@repo/ui/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
 
 import { activitiesQueryOptions } from "@/lib/activities-query";
 import { authClient, signIn, signOut, useSession } from "@/lib/auth-client";
-import { useSetStreamsSince } from "@/lib/streams-since-mutation";
 
 export const Route = createFileRoute("/")({
   loader: async ({ context: { queryClient } }) => {
@@ -24,14 +20,6 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-function toDateInputValue(iso: string | null | undefined) {
-  if (!iso) {
-    return "";
-  }
-
-  return iso.slice(0, 10);
-}
-
 function Home() {
   const { data: session, isPending } = useSession();
   const { data: activities, isFetching } = useQuery({
@@ -42,11 +30,9 @@ function Home() {
       return pending > 0 ? 5_000 : false;
     },
   });
-  const setStreamsSince = useSetStreamsSince();
-  const [streamsSinceInput, setStreamsSinceInput] = useState("");
 
-  const streamsSinceValue =
-    streamsSinceInput || toDateInputValue(activities?.streamsSince ?? undefined);
+  const hasStreamProgress =
+    (activities?.streamsReadyCount ?? 0) > 0 || (activities?.streamsPendingCount ?? 0) > 0;
 
   return (
     <Card className="w-full max-w-sm">
@@ -75,37 +61,13 @@ function Home() {
                 )}
               </div>
 
-              <div className="space-y-2 text-left">
-                <Label htmlFor="streams-since">Detailed data since</Label>
-                <Input
-                  id="streams-since"
-                  type="date"
-                  value={streamsSinceValue}
-                  onChange={(event) => setStreamsSinceInput(event.target.value)}
-                />
-                <Button
-                  className="w-full"
-                  variant="secondary"
-                  disabled={!streamsSinceValue || setStreamsSince.isPending}
-                  onClick={() => {
-                    if (!streamsSinceValue) {
-                      return;
-                    }
-
-                    const iso = new Date(`${streamsSinceValue}T00:00:00`).toISOString();
-                    setStreamsSince.mutate(iso);
-                  }}
-                >
-                  {setStreamsSince.isPending ? "Saving…" : "Save stream window"}
-                </Button>
-                {activities?.streamsSince && (
-                  <p className="text-xs">
-                    Streams: {activities.streamsReadyCount ?? 0} ready ·{" "}
-                    {activities.streamsPendingCount ?? 0} pending
-                    {(activities.streamsPendingCount ?? 0) > 0 ? " · backfilling…" : ""}
-                  </p>
-                )}
-              </div>
+              {hasStreamProgress && (
+                <p className="text-xs">
+                  Streams (HR activities): {activities?.streamsReadyCount ?? 0} ready ·{" "}
+                  {activities?.streamsPendingCount ?? 0} pending
+                  {(activities?.streamsPendingCount ?? 0) > 0 ? " · backfilling…" : ""}
+                </p>
+              )}
             </div>
             <Button variant="outline" onClick={() => signOut()} disabled={isPending}>
               Sign out
