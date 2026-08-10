@@ -19,7 +19,7 @@
     },
     "apps/backend": {
       "name": "backend",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@better-auth/drizzle-adapter": "^1.6.26",
         "@better-fetch/fetch": "^1.3.1",
@@ -46,8 +46,7 @@
       "name": "frontend",
       "version": "0.1.1",
       "dependencies": {
-        "@better-fetch/fetch": "^1.3.1",
-        "@repo/ui": "workspace:*",
+        "@repo/ui": "*",
         "@tailwindcss/vite": "^4.3.3",
         "@tanstack/react-devtools": "latest",
         "@tanstack/react-query": "^5.101.4",
@@ -55,7 +54,9 @@
         "@tanstack/react-router": "latest",
         "@tanstack/react-router-devtools": "latest",
         "@varlock/vite-integration": "^1.4.0",
+        "backend": "workspace:*",
         "better-auth": "^1.6.26",
+        "hono": "^4.13.0",
         "react": "^19.2.8",
         "react-dom": "^19.2.8",
         "shadcn": "^4.16.2",

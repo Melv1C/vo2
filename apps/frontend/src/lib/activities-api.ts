@@ -1,17 +1,15 @@
-import { createFetch } from "@better-fetch/fetch";
-import { ENV } from "varlock/env";
+import type { InferResponseType } from "hono/client";
 
-export type ActivitySyncSummary = {
-  activitiesCount: number;
-  lastFetchedAt: string | null;
-  newActivities: number;
-};
+import { apiClient } from "@/lib/api-client";
 
-const api = createFetch({
-  baseURL: `${ENV.BACKEND_URL}/api`,
-  credentials: "include",
-  throw: true,
-});
+export type ActivitySyncSummary = InferResponseType<typeof apiClient.activities.$get>;
 
-export const fetchActivities = (signal?: AbortSignal) =>
-  api<ActivitySyncSummary>("/activities", { signal });
+export async function fetchActivities(signal?: AbortSignal) {
+  const res = await apiClient.activities.$get(undefined, { init: { signal } });
+
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status}`);
+  }
+
+  return res.json();
+}

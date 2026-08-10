@@ -19,3 +19,5 @@ export const routes = new Hono()
     logger.error("Unhandled error occurred", { error });
     return c.json({ message: "Internal Server Error" }, 500);
   });
+
+export type AppType = typeof routes;
