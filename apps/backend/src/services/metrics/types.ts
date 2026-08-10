@@ -146,3 +146,23 @@ export type SportModule = {
   canCompute: (ctx: SportComputeContext) => boolean;
   compute: (ctx: SportComputeContext) => SportModuleResult;
 };
+
+export type UniversalMetricsResult = {
+  trimpBanister: number | null;
+  trimpEdwards: number | null;
+  hrTss: number | null;
+  avgHr: number | null;
+  maxHr: number | null;
+  movingTimeS: number;
+  decouplingPct: number | null;
+  timeInZone: TimeInZone[];
+};
+
+export type UniversalComputeContext = {
+  stream: SanitizedStream;
+  athlete: AthleteContext;
+};
+
+export type UniversalModule = {
+  compute: (ctx: UniversalComputeContext) => UniversalMetricsResult;
+};
