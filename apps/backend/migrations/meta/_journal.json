@@ -50,6 +50,20 @@
       "when": 1786388528069,
       "tag": "0006_perfect_nextwave",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786458828239,
+      "tag": "0007_grey_gideon",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786460000000,
+      "tag": "0008_swim_css_anchor",
+      "breakpoints": true
     }
   ]
 }

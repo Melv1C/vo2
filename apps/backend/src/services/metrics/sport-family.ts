@@ -11,6 +11,8 @@ const CYCLING_TYPES = new Set([
 
 const RUNNING_TYPES = new Set(["Run", "TrailRun"]);
 
+const SWIMMING_TYPES = new Set(["Swim"]);
+
 const WALKING_TYPES = new Set(["Walk", "Hike"]);
 
 /** Single mapping from Strava sport_type strings to sport families. */
@@ -24,6 +26,9 @@ export function resolveSportFamily(sportType: string | null | undefined): SportF
   }
   if (RUNNING_TYPES.has(sportType)) {
     return "running";
+  }
+  if (SWIMMING_TYPES.has(sportType)) {
+    return "swimming";
   }
   if (WALKING_TYPES.has(sportType)) {
     return "walking";

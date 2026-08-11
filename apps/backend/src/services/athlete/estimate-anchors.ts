@@ -11,7 +11,7 @@ import {
 } from "@/services/athlete/rolling-window";
 import { sanitizeStream } from "@/services/metrics/sanitize-stream";
 import { resolveSportFamily } from "@/services/metrics/sport-family";
-import type { RawStreamInput } from "@/services/metrics/types";
+import type { RawStreamInput, SanitizedStream } from "@/services/metrics/types";
 
 export type { EstimateConfidence } from "@/services/athlete/rolling-window";
 
@@ -28,6 +28,7 @@ export type AnchorEstimates = {
   lthr: AnchorProposal | null;
   ftp: AnchorProposal | null;
   thresholdPaceMps: AnchorProposal | null;
+  thresholdSwimPaceMps: AnchorProposal | null;
   maxHrDriftSuggested: boolean;
 };
 
@@ -36,8 +37,7 @@ const LTHR_WINDOW_S = 20 * 60;
 const FTP_WINDOW_S = 20 * 60;
 const PACE_WINDOW_S = 20 * 60;
 
-function hrSeriesFromSanitized(input: RawStreamInput): SeriesPoint[] {
-  const sanitized = sanitizeStream(input);
+function hrSeriesFromSanitized(sanitized: SanitizedStream): SeriesPoint[] {
   const points: SeriesPoint[] = [];
 
   for (const segment of sanitized.segments) {
@@ -52,8 +52,7 @@ function hrSeriesFromSanitized(input: RawStreamInput): SeriesPoint[] {
   return points;
 }
 
-function powerSeriesFromSanitized(input: RawStreamInput): SeriesPoint[] {
-  const sanitized = sanitizeStream(input);
+function powerSeriesFromSanitized(sanitized: SanitizedStream): SeriesPoint[] {
   const points: SeriesPoint[] = [];
 
   for (const segment of sanitized.segments) {
@@ -68,8 +67,7 @@ function powerSeriesFromSanitized(input: RawStreamInput): SeriesPoint[] {
   return points;
 }
 
-function paceSeriesFromSanitized(input: RawStreamInput): SeriesPoint[] {
-  const sanitized = sanitizeStream(input);
+function paceSeriesFromSanitized(sanitized: SanitizedStream): SeriesPoint[] {
   const points: SeriesPoint[] = [];
 
   for (const segment of sanitized.segments) {
@@ -109,6 +107,10 @@ function pickBestProposal(
   return current;
 }
 
+/**
+ * Estimates physiological anchors from historical stream data.
+ * Sanitizes each stream once, then derives HR/power/pace series.
+ */
 export async function estimateAnchorsFromHistory(userId: string): Promise<AnchorEstimates> {
   const [profile] = await db
     .select({
@@ -134,13 +136,14 @@ export async function estimateAnchorsFromHistory(userId: string): Promise<Anchor
   let lthr: AnchorProposal | null = null;
   let ftp: AnchorProposal | null = null;
   let thresholdPaceMps: AnchorProposal | null = null;
+  let thresholdSwimPaceMps: AnchorProposal | null = null;
 
   for (const row of rows) {
-    const raw = toRawStreamInput(row.stream);
+    const sanitized = sanitizeStream(toRawStreamInput(row.stream));
     const activityDate = row.startDate.toISOString();
     const sportFamily = resolveSportFamily(row.sportType);
 
-    const hrPoints = hrSeriesFromSanitized(raw);
+    const hrPoints = hrSeriesFromSanitized(sanitized);
     if (hrPoints.length > 0) {
       const hrMaxWindow = bestRollingMean(hrPoints, HRMAX_WINDOW_S);
       if (hrMaxWindow) {
@@ -176,7 +179,7 @@ export async function estimateAnchorsFromHistory(userId: string): Promise<Anchor
     }
 
     if (sportFamily === "cycling" && row.deviceWatts === true) {
-      const powerPoints = powerSeriesFromSanitized(raw);
+      const powerPoints = powerSeriesFromSanitized(sanitized);
       const ftpWindow = bestRollingMean(powerPoints, FTP_WINDOW_S);
       if (ftpWindow) {
         const segmentDurationS = ftpWindow.endTimeS - ftpWindow.startTimeS;
@@ -195,7 +198,7 @@ export async function estimateAnchorsFromHistory(userId: string): Promise<Anchor
     }
 
     if (sportFamily === "running") {
-      const pacePoints = paceSeriesFromSanitized(raw);
+      const pacePoints = paceSeriesFromSanitized(sanitized);
       const paceWindow = bestRollingMean(pacePoints, PACE_WINDOW_S);
       if (paceWindow) {
         const segmentDurationS = paceWindow.endTimeS - paceWindow.startTimeS;
@@ -217,6 +220,30 @@ export async function estimateAnchorsFromHistory(userId: string): Promise<Anchor
         );
       }
     }
+
+    if (sportFamily === "swimming") {
+      const pacePoints = paceSeriesFromSanitized(sanitized);
+      const cssWindow = bestRollingMean(pacePoints, PACE_WINDOW_S);
+      if (cssWindow) {
+        const segmentDurationS = cssWindow.endTimeS - cssWindow.startTimeS;
+        const swimConfidence: EstimateConfidence =
+          row.movingTime != null && row.movingTime >= PACE_WINDOW_S * 2
+            ? confidenceForWindow(PACE_WINDOW_S, segmentDurationS, row.movingTime)
+            : "low";
+
+        thresholdSwimPaceMps = pickBestProposal(
+          thresholdSwimPaceMps,
+          {
+            value: Number(cssWindow.mean.toFixed(2)),
+            confidence: swimConfidence,
+            activityId: row.activityId,
+            activityDate,
+            method: "best_20min_rolling_mean_swim_velocity",
+          },
+          (next, best) => next > best,
+        );
+      }
+    }
   }
 
   const storedMaxHr = profile?.maxHr ?? null;
@@ -230,6 +257,7 @@ export async function estimateAnchorsFromHistory(userId: string): Promise<Anchor
     lthr,
     ftp,
     thresholdPaceMps,
+    thresholdSwimPaceMps,
     maxHrDriftSuggested,
   };
 }
