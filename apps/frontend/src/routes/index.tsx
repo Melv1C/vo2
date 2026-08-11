@@ -1,11 +1,14 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardHeader } from "@repo/ui/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
 
 import { activitiesQueryOptions } from "@/lib/activities-query";
 import { authClient, signIn, signOut, useSession } from "@/lib/auth-client";
+import { recomputeMetrics } from "@/lib/metrics-api";
+import { dailyMetricsQueryOptions } from "@/lib/metrics-query";
 
 export const Route = createFileRoute("/")({
   loader: async ({ context: { queryClient } }) => {
@@ -16,11 +19,13 @@ export const Route = createFileRoute("/")({
     }
 
     void queryClient.ensureQueryData(activitiesQueryOptions);
+    void queryClient.ensureQueryData(dailyMetricsQueryOptions);
   },
   component: Home,
 });
 
 function Home() {
+  const queryClient = useQueryClient();
   const { data: session, isPending } = useSession();
   const { data: activities, isFetching } = useQuery({
     ...activitiesQueryOptions,
@@ -30,6 +35,22 @@ function Home() {
       return pending > 0 ? 5_000 : false;
     },
   });
+  const { data: dailyMetrics } = useQuery({
+    ...dailyMetricsQueryOptions,
+    enabled: !!session,
+  });
+  const recompute = useMutation({
+    mutationFn: () => recomputeMetrics(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: dailyMetricsQueryOptions.queryKey });
+    },
+  });
+
+  useEffect(() => {
+    if (dailyMetrics) {
+      console.log("[metrics/daily]", dailyMetrics);
+    }
+  }, [dailyMetrics]);
 
   const hasStreamProgress =
     (activities?.streamsReadyCount ?? 0) > 0 || (activities?.streamsPendingCount ?? 0) > 0;
@@ -68,7 +89,25 @@ function Home() {
                   {(activities?.streamsPendingCount ?? 0) > 0 ? " · backfilling…" : ""}
                 </p>
               )}
+
+              {recompute.isSuccess && (
+                <p className="text-xs">
+                  Recomputed {recompute.data.processed} activities
+                  {recompute.data.skipped > 0 ? ` (${recompute.data.skipped} skipped)` : ""}
+                </p>
+              )}
+
+              {recompute.isError && (
+                <p className="text-destructive text-xs">Metrics recompute failed</p>
+              )}
             </div>
+            <Button
+              variant="outline"
+              onClick={() => recompute.mutate()}
+              disabled={recompute.isPending || isPending}
+            >
+              {recompute.isPending ? "Recomputing metrics…" : "Recompute metrics"}
+            </Button>
             <Button variant="outline" onClick={() => signOut()} disabled={isPending}>
               Sign out
             </Button>
