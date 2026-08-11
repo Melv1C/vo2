@@ -84,22 +84,6 @@ export const activityStreams = pgTable("activity_streams", {
   fetchedAt: timestamp("fetched_at").notNull(),
 });
 
-export const activitySubjective = pgTable("activity_subjective", {
-  activityId: uuid("activity_id")
-    .primaryKey()
-    .references(() => stravaActivities.id, { onDelete: "cascade" }),
-  rpe: integer("rpe"),
-  fatigue: integer("fatigue"),
-  muscularFeel: integer("muscular_feel"),
-  cardioFeel: integer("cardio_feel"),
-  pain: integer("pain"),
-  notes: text("notes"),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
-
 export const stravaActivitiesRelations = relations(stravaActivities, ({ one }) => ({
   user: one(user, {
     fields: [stravaActivities.userId],
@@ -109,22 +93,11 @@ export const stravaActivitiesRelations = relations(stravaActivities, ({ one }) =
     fields: [stravaActivities.id],
     references: [activityStreams.activityId],
   }),
-  subjective: one(activitySubjective, {
-    fields: [stravaActivities.id],
-    references: [activitySubjective.activityId],
-  }),
 }));
 
 export const activityStreamsRelations = relations(activityStreams, ({ one }) => ({
   activity: one(stravaActivities, {
     fields: [activityStreams.activityId],
-    references: [stravaActivities.id],
-  }),
-}));
-
-export const activitySubjectiveRelations = relations(activitySubjective, ({ one }) => ({
-  activity: one(stravaActivities, {
-    fields: [activitySubjective.activityId],
     references: [stravaActivities.id],
   }),
 }));

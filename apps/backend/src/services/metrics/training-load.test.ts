@@ -30,4 +30,14 @@ describe("buildDailyLoadSeries", () => {
     expect(series[41]?.isRamping).toBe(true);
     expect(series[42]?.isRamping).toBe(false);
   });
+
+  test("TSB uses previous day CTL minus previous day ATL", () => {
+    const series = buildDailyLoadSeries([
+      { date: "2025-01-01", trainingLoad: 100, activityCount: 1 },
+      { date: "2025-01-02", trainingLoad: 0, activityCount: 0 },
+    ]);
+
+    expect(series[0]?.tsb).toBe(0);
+    expect(series[1]?.tsb).toBeCloseTo(series[0]!.ctl - series[0]!.atl, 5);
+  });
 });

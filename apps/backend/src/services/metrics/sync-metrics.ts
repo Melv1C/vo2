@@ -1,23 +1,14 @@
-import { eq, sql } from "drizzle-orm";
-
-import { db } from "@/database";
-import { stravaActivities } from "@/database/entities/strava-activities";
 import { logger } from "@/lib/logger";
 import { computeAndPersistActivityMetrics } from "@/services/metrics/compute-activity-metrics";
+import {
+  loadAthleteProfile,
+  loadWeightSamples,
+  type AthleteContextCache,
+} from "@/services/metrics/context";
+import { pickEarliestDate } from "@/services/metrics/date-helpers";
 import { rebuildDailyTrainingLoad } from "@/services/metrics/rebuild-daily-training-load";
 
-const activityLocalDate = sql<string>`coalesce(date(${stravaActivities.startDateLocal}), date(${stravaActivities.startDate}))`;
-
-async function getActivityLocalDate(activityId: string): Promise<string | null> {
-  const [row] = await db
-    .select({
-      date: activityLocalDate,
-    })
-    .from(stravaActivities)
-    .where(eq(stravaActivities.id, activityId));
-
-  return row?.date ?? null;
-}
+export { pickEarliestDate } from "@/services/metrics/date-helpers";
 
 export type IncrementalMetricsSummary = {
   computed: number;
@@ -25,6 +16,10 @@ export type IncrementalMetricsSummary = {
   earliestDate: string | null;
 };
 
+/**
+ * Computes metrics for activities whose streams just became ready.
+ * Side effects: upserts `activity_metrics`, rebuilds `daily_training_load` from earliest affected date.
+ */
 export async function processNewlyReadyStreams(
   userId: string,
   activityIds: string[],
@@ -34,25 +29,28 @@ export async function processNewlyReadyStreams(
     return { computed: 0, skipped: 0, earliestDate: null };
   }
 
+  const athleteCache: AthleteContextCache = {
+    profile: await loadAthleteProfile(userId),
+    weightSamples: await loadWeightSamples(userId),
+  };
+
   let computed = 0;
   let skipped = 0;
   const affectedDates: string[] = [];
 
   for (const activityId of uniqueIds) {
-    const result = await computeAndPersistActivityMetrics(activityId);
+    const result = await computeAndPersistActivityMetrics(activityId, { athleteCache });
     if (result.computed) {
       computed += 1;
-      const date = await getActivityLocalDate(activityId);
-      if (date) {
-        affectedDates.push(date);
+      if (result.localDate) {
+        affectedDates.push(result.localDate);
       }
     } else {
       skipped += 1;
     }
   }
 
-  const earliestDate =
-    affectedDates.length > 0 ? affectedDates.sort((left, right) => left.localeCompare(right))[0]! : null;
+  const earliestDate = pickEarliestDate(affectedDates);
 
   if (earliestDate) {
     await rebuildDailyTrainingLoad(userId, earliestDate);

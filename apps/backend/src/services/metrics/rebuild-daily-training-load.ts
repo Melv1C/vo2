@@ -3,6 +3,7 @@ import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/database";
 import { activityMetrics, dailyTrainingLoad } from "@/database/entities/activity-metrics";
 import { stravaActivities } from "@/database/entities/strava-activities";
+import { filterSeriesFromDate } from "@/services/metrics/date-helpers";
 import { buildDailyLoadSeries } from "@/services/metrics/training-load";
 
 const activityLocalDate = sql<string>`coalesce(date(${stravaActivities.startDateLocal}), date(${stravaActivities.startDate}))`;
@@ -23,10 +24,13 @@ async function loadDailyAggregates(userId: string) {
     .orderBy(activityLocalDate);
 }
 
-export async function rebuildDailyTrainingLoad(
-  userId: string,
-  fromDate?: string,
-): Promise<number> {
+/**
+ * Rebuilds CTL/ATL/TSB daily series from all activity metrics for a user.
+ *
+ * Always aggregates full history so CTL/ATL seed correctly; `fromDate` only limits
+ * which rows are written back to `daily_training_load`.
+ */
+export async function rebuildDailyTrainingLoad(userId: string, fromDate?: string): Promise<number> {
   const rows = await loadDailyAggregates(userId);
 
   if (rows.length === 0) {
@@ -42,7 +46,7 @@ export async function rebuildDailyTrainingLoad(
     })),
   );
 
-  const upsertRows = fromDate ? series.filter((row) => row.date >= fromDate) : series;
+  const upsertRows = filterSeriesFromDate(series, fromDate);
 
   if (upsertRows.length === 0) {
     return 0;
@@ -72,11 +76,7 @@ export async function rebuildDailyTrainingLoad(
   return upsertRows.length;
 }
 
-export async function getDailyTrainingLoadSeries(
-  userId: string,
-  from?: string,
-  to?: string,
-) {
+export async function getDailyTrainingLoadSeries(userId: string, from?: string, to?: string) {
   const filters = [eq(dailyTrainingLoad.userId, userId)];
 
   if (from) {

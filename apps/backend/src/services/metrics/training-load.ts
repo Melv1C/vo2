@@ -1,13 +1,19 @@
 export type DailyLoadInput = {
+  /** Calendar date (YYYY-MM-DD). */
   date: string;
+  /** Total training load for the day (TSS-equivalent units). */
   trainingLoad: number;
   activityCount: number;
 };
 
 export type DailyLoadOutput = DailyLoadInput & {
+  /** Chronic Training Load — 42-day exponentially weighted average. */
   ctl: number;
+  /** Acute Training Load — 7-day exponentially weighted average. */
   atl: number;
+  /** Training Stress Balance — yesterday's CTL minus yesterday's ATL. */
   tsb: number;
+  /** True for the first 42 days of the series (CTL still ramping). */
   isRamping: boolean;
 };
 
@@ -37,9 +43,12 @@ function enumerateDates(startDate: string, endDate: string): string[] {
   return dates;
 }
 
-export function buildDailyLoadSeries(
-  dailyLoads: DailyLoadInput[],
-): DailyLoadOutput[] {
+/**
+ * Builds a continuous daily CTL/ATL/TSB series from sparse daily load inputs.
+ * Fills calendar gaps with zero-load rest days. TSB uses previous day's CTL/ATL.
+ * Source: Banister impulse-response model (CTL/ATL formulation per TrainingPeaks convention).
+ */
+export function buildDailyLoadSeries(dailyLoads: DailyLoadInput[]): DailyLoadOutput[] {
   if (dailyLoads.length === 0) {
     return [];
   }

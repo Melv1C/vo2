@@ -158,8 +158,12 @@ describe("resolveSportFamily", () => {
     expect(resolveSportFamily("Walk")).toBe("walking");
   });
 
+  test("maps swimming types", () => {
+    expect(resolveSportFamily("Swim")).toBe("swimming");
+  });
+
   test("unknown maps to other", () => {
-    expect(resolveSportFamily("Swim")).toBe("other");
+    expect(resolveSportFamily("AlpineSki")).toBe("other");
     expect(resolveSportFamily(null)).toBe("other");
   });
 });

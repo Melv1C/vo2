@@ -162,7 +162,7 @@ function toSanitizedSample(sample: ReturnType<typeof buildRawSamples>[number]): 
 
 /**
  * Converts raw stream arrays into gap-segmented, bounded samples.
- * Pure function — no DB access.
+ * Pure function — no DB access. Drops out-of-range values and impossible HR transitions.
  */
 export function sanitizeStream(input: RawStreamInput): SanitizedStream {
   const raw = buildRawSamples(input);
