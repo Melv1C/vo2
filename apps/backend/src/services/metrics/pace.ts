@@ -15,6 +15,12 @@ import type {
 const MIN_GAP_SAMPLES = 30;
 const MAX_GRADE = 0.45;
 
+/**
+ * Minetti metabolic cost polynomial for grade (dimensionless).
+ * Source: Minetti et al. 2002, J Appl Physiol.
+ *
+ * @param gradient - Grade as rise/run (e.g. 0.05 = 5%)
+ */
 export function minettiCost(gradient: number): number {
   const grade = Math.max(-MAX_GRADE, Math.min(MAX_GRADE, gradient));
   return (
@@ -27,6 +33,10 @@ export function minettiCost(gradient: number): number {
   );
 }
 
+/**
+ * Grade-adjusted pace (GAP) in m/s.
+ * Scales velocity by relative Minetti cost at grade vs flat.
+ */
 export function gradeAdjustedSpeed(velocityMps: number, gradient: number): number {
   const flatCost = minettiCost(0);
   const gradeCost = minettiCost(gradient);
@@ -136,6 +146,11 @@ function averageCadence(samples: RunningSample[]): number | null {
   return durationS > 0 ? weightedSum / durationS : null;
 }
 
+/**
+ * Running metrics from velocity stream data.
+ * Computes NGP (Minetti grade adjustment + Coggan fourth-power mean),
+ * rTSS, efficiency index, and ACSM energy estimate.
+ */
 export function computeRunningMetrics(
   ctx: SportComputeContext,
 ): Pick<SportModuleResult, "sportPayload" | "energyKcal" | "decouplingPct"> {

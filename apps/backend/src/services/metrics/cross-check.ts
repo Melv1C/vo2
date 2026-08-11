@@ -3,10 +3,10 @@ import type {
   CrossCheckResult,
   CyclingPayload,
   DataQualityReport,
-  LoadSource,
   RunningPayload,
   SportFamily,
   SportPayload,
+  SwimmingPayload,
 } from "./types";
 
 export type AnchorCrossCheck = {
@@ -40,6 +40,14 @@ function isRunningPayload(payload: SportPayload): payload is RunningPayload {
   return "rTss" in payload;
 }
 
+function isSwimmingPayload(payload: SportPayload): payload is SwimmingPayload {
+  return "sTss" in payload;
+}
+
+/**
+ * Per-activity cross-checks between load estimators and data quality gates.
+ * Disagreement percentages are stored for diagnostics; only hrTSS gates load downgrade.
+ */
 export function computeActivityCrossChecks(input: {
   trimpBanister: number | null;
   trimpEdwards: number | null;
@@ -50,14 +58,13 @@ export function computeActivityCrossChecks(input: {
   sportPayload: SportPayload | null;
 }): CrossCheckResult {
   const banisterVsEdwardsPct =
-    input.trimpBanister != null &&
-    input.trimpEdwards != null &&
-    input.trimpEdwards > 0
+    input.trimpBanister != null && input.trimpEdwards != null && input.trimpEdwards > 0
       ? percentDifference(input.trimpBanister, input.trimpEdwards)
       : null;
 
   let tssVsHrtssPct: number | null = null;
   let rtssVsHrtssPct: number | null = null;
+  let stssVsHrtssPct: number | null = null;
 
   if (input.sportPayload && input.hrTss != null) {
     if (isCyclingPayload(input.sportPayload)) {
@@ -66,11 +73,15 @@ export function computeActivityCrossChecks(input: {
     if (isRunningPayload(input.sportPayload)) {
       rtssVsHrtssPct = percentDifference(input.sportPayload.rTss, input.hrTss);
     }
+    if (isSwimmingPayload(input.sportPayload)) {
+      stssVsHrtssPct = percentDifference(input.sportPayload.sTss, input.hrTss);
+    }
   }
 
   return {
     tssVsHrtssPct,
     rtssVsHrtssPct,
+    stssVsHrtssPct,
     banisterVsEdwardsPct,
     decouplingSanity:
       input.decouplingPct == null ||
@@ -100,21 +111,21 @@ function ageFromBirthdate(birthdate: string | null): number | null {
   return age;
 }
 
+/**
+ * Validates athlete anchor values against published physiological references.
+ * Tanaka 2001 (HRmax), LTHR %HRmax, FTP W/kg, Uth-Sørensen VO2max, ACSM VO2 at threshold.
+ */
 export function computeAnchorCrossChecks(athlete: AthleteContext): AnchorCrossCheckSummary {
   const checks: AnchorCrossCheck[] = [];
   const age = ageFromBirthdate(athlete.birthdate);
-  const tanaka =
-    age != null && athlete.maxHr != null ? 208 - 0.7 * age : null;
+  const tanaka = age != null && athlete.maxHr != null ? 208 - 0.7 * age : null;
 
   checks.push({
     id: "tanaka_hrmax",
     label: "HRmax vs Tanaka",
     value: athlete.maxHr,
     expected: tanaka != null ? `${tanaka.toFixed(1)} ± 12 bpm` : "birthdate + max HR required",
-    pass:
-      athlete.maxHr != null && tanaka != null
-        ? Math.abs(athlete.maxHr - tanaka) <= 12
-        : false,
+    pass: athlete.maxHr != null && tanaka != null ? Math.abs(athlete.maxHr - tanaka) <= 12 : false,
   });
 
   const lthrPct =
@@ -158,24 +169,33 @@ export function computeAnchorCrossChecks(athlete: AthleteContext): AnchorCrossCh
 
   const vo2Cycling = ftpWkg != null ? 7 + 10.8 * ftpWkg : null;
   checks.push({
-    id: "vo2max_acsm_cycling",
-    label: "VO2max ACSM cycling",
+    id: "vo2_at_threshold_acsm_cycling",
+    label: "VO2 at threshold (ACSM cycling)",
     value: vo2Cycling,
-    expected: "reference estimate",
+    expected: "reference estimate at FTP",
     pass: vo2Cycling != null,
   });
 
   const vo2Running =
-    athlete.thresholdPaceMps != null
-      ? 0.2 * athlete.thresholdPaceMps * 60 + 3.5
-      : null;
+    athlete.thresholdPaceMps != null ? 0.2 * athlete.thresholdPaceMps * 60 + 3.5 : null;
 
   checks.push({
-    id: "vo2max_acsm_running",
-    label: "VO2max ACSM running",
+    id: "vo2_at_threshold_acsm_running",
+    label: "VO2 at threshold (ACSM running)",
     value: vo2Running,
-    expected: "reference estimate",
+    expected: "reference estimate at threshold pace",
     pass: vo2Running != null,
+  });
+
+  const vo2Swimming =
+    athlete.thresholdSwimPaceMps != null ? 1.8 * athlete.thresholdSwimPaceMps * 60 + 3.5 : null;
+
+  checks.push({
+    id: "vo2_at_threshold_acsm_swimming",
+    label: "VO2 at threshold (ACSM swimming)",
+    value: vo2Swimming,
+    expected: "reference estimate at CSS",
+    pass: vo2Swimming != null,
   });
 
   const vo2GapPct =
@@ -184,8 +204,8 @@ export function computeAnchorCrossChecks(athlete: AthleteContext): AnchorCrossCh
       : null;
 
   checks.push({
-    id: "running_vs_cycling_vo2_gap",
-    label: "Running vs cycling VO2 gap",
+    id: "running_vs_cycling_vo2_at_threshold_gap",
+    label: "Running vs cycling VO2 at threshold gap",
     value: vo2GapPct,
     expected: "< 20%",
     pass: vo2GapPct != null && vo2GapPct < 20,

@@ -1,12 +1,22 @@
 export type TimedValue = {
+  /** Elapsed time since activity start (seconds). */
   timeS: number;
+  /** Sample duration (seconds). */
   deltaS: number;
+  /** Metric value (watts or m/s depending on context). */
   value: number;
 };
 
 const COGGAN_ROLLING_WINDOW_S = 30;
 
-/** Coggan-style normalized fourth-power mean over a time-based rolling window. */
+/**
+ * Coggan Normalized Power / NGP: fourth-power mean of 30 s rolling averages.
+ * Source: Coggan & Allen, Training and Racing with a Power Meter.
+ *
+ * @param samples - Time-series values with per-sample duration
+ * @param windowS - Rolling window size (default 30 s)
+ * @returns Normalized value, or null when no samples
+ */
 export function normalizedFourthPowerMean(
   samples: TimedValue[],
   windowS: number = COGGAN_ROLLING_WINDOW_S,
@@ -52,6 +62,12 @@ export function normalizedFourthPowerMean(
   return meanFourth ** 0.25;
 }
 
+/**
+ * Aerobic decoupling: percent change in efficiency (e.g. power/HR) between first and second half.
+ * Positive values indicate efficiency loss (cardiac drift).
+ *
+ * @returns Decoupling percent, or null when fewer than 4 samples
+ */
 export function splitEfficiencyDecoupling(samples: Array<{ efficiency: number }>): number | null {
   if (samples.length < 4) {
     return null;

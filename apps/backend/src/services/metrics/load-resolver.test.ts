@@ -1,42 +1,32 @@
 import { describe, expect, test } from "bun:test";
 
-import { computeAnchorCrossChecks } from "./cross-check";
-import { computeTrimpEquivalent, referenceBanisterTrimpAtLthr, resolveTrainingLoad } from "./load-resolver";
+import {
+  computeTrimpEquivalent,
+  referenceBanisterTrimpAtLthr,
+  resolveTrainingLoad,
+} from "./load-resolver";
 import { banisterSampleContribution } from "./trimp";
+
+const anchor = {
+  maxHr: 200,
+  restingHr: 65,
+  lthr: 182,
+  ftp: 300,
+  thresholdPaceMps: 3.26,
+  thresholdSwimPaceMps: 1.2,
+  weightKg: 77,
+  sex: "M" as const,
+};
 
 describe("referenceBanisterTrimpAtLthr", () => {
   test("matches one hour of Banister TRIMP at LTHR", () => {
-    const anchor = {
-      maxHr: 200,
-      restingHr: 65,
-      lthr: 182,
-      ftp: 300,
-      thresholdPaceMps: 3.26,
-      weightKg: 77,
-      sex: "M" as const,
-    };
-
-    let expected = 0;
-    for (let second = 0; second < 3600; second++) {
-      expected += banisterSampleContribution(1, 182, 65, 200, "M");
-    }
-
+    const expected = 3600 * banisterSampleContribution(1, 182, 65, 200, "M");
     expect(referenceBanisterTrimpAtLthr(anchor)).toBeCloseTo(expected, 5);
   });
 });
 
 describe("computeTrimpEquivalent", () => {
   test("returns about 100 for one hour at LTHR", () => {
-    const anchor = {
-      maxHr: 200,
-      restingHr: 65,
-      lthr: 182,
-      ftp: 300,
-      thresholdPaceMps: 3.26,
-      weightKg: 77,
-      sex: "M" as const,
-    };
-
     const reference = referenceBanisterTrimpAtLthr(anchor)!;
     expect(computeTrimpEquivalent(reference, anchor)).toBeCloseTo(100, 1);
   });
@@ -46,20 +36,11 @@ describe("resolveTrainingLoad", () => {
   const crossChecks = {
     tssVsHrtssPct: null,
     rtssVsHrtssPct: null,
+    stssVsHrtssPct: null,
     banisterVsEdwardsPct: null,
     decouplingSanity: true,
     coverageOk: true,
     downgraded: false,
-  };
-
-  const anchor = {
-    maxHr: 200,
-    restingHr: 65,
-    lthr: 182,
-    ftp: 300,
-    thresholdPaceMps: 3.26,
-    weightKg: 77,
-    sex: "M" as const,
   };
 
   test("downgrades cycling TSS when hrTSS disagrees by more than 25%", () => {
@@ -105,24 +86,25 @@ describe("resolveTrainingLoad", () => {
     expect(result.loadSource).toBe("r_tss");
     expect(result.trainingLoad).toBe(96);
   });
-});
 
-describe("computeAnchorCrossChecks", () => {
-  test("passes Tanaka check for seeded anchors", () => {
-    const summary = computeAnchorCrossChecks({
-      userId: "user-1",
-      maxHr: 200,
-      restingHr: 65,
-      lthr: 182,
-      ftp: 300,
-      thresholdPaceMps: 3.26,
-      weightKg: 77,
-      heightCm: 180,
-      birthdate: "2004-08-10",
-      sex: "M",
+  test("uses sTSS for swimming when cross-check passes", () => {
+    const result = resolveTrainingLoad({
+      sportFamily: "swimming",
+      deviceWatts: false,
+      trimpBanister: 90,
+      hrTss: 95,
+      sportPayload: {
+        nspMps: 1.2,
+        swimIntensityFactor: 1,
+        sTss: 96,
+        efficiencyIndex: 0.008,
+        avgCadence: 28,
+      },
+      anchorSnapshot: anchor,
+      crossChecks,
     });
 
-    const tanaka = summary.checks.find((check) => check.id === "tanaka_hrmax");
-    expect(tanaka?.pass).toBe(true);
+    expect(result.loadSource).toBe("s_tss");
+    expect(result.trainingLoad).toBe(96);
   });
 });

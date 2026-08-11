@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { computeRunningMetrics, gradeAdjustedSpeed, minettiCost } from "./pace";
 import { sanitizeStream } from "./sanitize-stream";
+import { testRawStreamInput } from "./test-stream-input";
 
 describe("minettiCost", () => {
   test("increases cost on positive grade", () => {
@@ -20,12 +21,14 @@ describe("gradeAdjustedSpeed", () => {
 
 describe("computeRunningMetrics", () => {
   test("computes NGP and rTSS for a steady run at threshold pace", () => {
-    const stream = sanitizeStream({
-      timeS: Array.from({ length: 3600 }, (_, index) => index),
-      velocityMps: Array.from({ length: 3600 }, () => 3.26),
-      heartrate: Array.from({ length: 3600 }, () => 170),
-      moving: Array.from({ length: 3600 }, () => true),
-    });
+    const stream = sanitizeStream(
+      testRawStreamInput({
+        timeS: Array.from({ length: 3600 }, (_, index) => index),
+        velocityMps: Array.from({ length: 3600 }, () => 3.26),
+        heartrate: Array.from({ length: 3600 }, () => 170),
+        moving: Array.from({ length: 3600 }, () => true),
+      }),
+    );
 
     const result = computeRunningMetrics({
       stream,
@@ -36,6 +39,7 @@ describe("computeRunningMetrics", () => {
         lthr: 182,
         ftp: 300,
         thresholdPaceMps: 3.26,
+        thresholdSwimPaceMps: null,
         weightKg: 77,
         heightCm: 180,
         birthdate: "2004-08-10",
@@ -45,19 +49,24 @@ describe("computeRunningMetrics", () => {
       deviceWatts: false,
     });
 
-    expect(result.sportPayload?.ngpMps).toBeCloseTo(3.26, 1);
-    expect(result.sportPayload?.rTss).toBeCloseTo(100, 1);
+    expect(result.sportPayload && "rTss" in result.sportPayload).toBe(true);
+    if (result.sportPayload && "rTss" in result.sportPayload) {
+      expect(result.sportPayload.ngpMps).toBeCloseTo(3.26, 1);
+      expect(result.sportPayload.rTss).toBeCloseTo(100, 1);
+    }
     expect(result.energyKcal).toBeGreaterThan(0);
   });
 
   test("ignores running watch power even when watts are present", () => {
-    const stream = sanitizeStream({
-      timeS: Array.from({ length: 120 }, (_, index) => index),
-      velocityMps: Array.from({ length: 120 }, () => 3.2),
-      watts: Array.from({ length: 120 }, () => 220),
-      heartrate: Array.from({ length: 120 }, () => 165),
-      moving: Array.from({ length: 120 }, () => true),
-    });
+    const stream = sanitizeStream(
+      testRawStreamInput({
+        timeS: Array.from({ length: 120 }, (_, index) => index),
+        velocityMps: Array.from({ length: 120 }, () => 3.2),
+        watts: Array.from({ length: 120 }, () => 220),
+        heartrate: Array.from({ length: 120 }, () => 165),
+        moving: Array.from({ length: 120 }, () => true),
+      }),
+    );
 
     const result = computeRunningMetrics({
       stream,
@@ -68,6 +77,7 @@ describe("computeRunningMetrics", () => {
         lthr: 182,
         ftp: 300,
         thresholdPaceMps: 3.26,
+        thresholdSwimPaceMps: null,
         weightKg: 77,
         heightCm: 180,
         birthdate: "2004-08-10",
@@ -77,7 +87,10 @@ describe("computeRunningMetrics", () => {
       deviceWatts: true,
     });
 
-    expect(result.sportPayload?.ngpMps).toBeGreaterThan(0);
+    expect(result.sportPayload && "rTss" in result.sportPayload).toBe(true);
+    if (result.sportPayload && "rTss" in result.sportPayload) {
+      expect(result.sportPayload.ngpMps).toBeGreaterThan(0);
+    }
     expect(result.sportPayload).not.toHaveProperty("np");
   });
 });

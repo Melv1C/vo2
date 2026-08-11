@@ -1,3 +1,5 @@
+import { cyclingEnergyKcalFromWorkKj } from "@/services/athlete/energy";
+
 import {
   normalizedFourthPowerMean,
   splitEfficiencyDecoupling,
@@ -13,7 +15,7 @@ function collectPowerSamples(stream: SanitizedStream): TimedValue[] {
 
   for (const segment of stream.segments) {
     for (const sample of segment.samples) {
-      if (!sample.moving || sample.deltaS <= 0 || sample.power == null || sample.power <= 0) {
+      if (!sample.moving || sample.deltaS <= 0 || sample.power == null) {
         continue;
       }
       samples.push({
@@ -49,10 +51,12 @@ function collectPowerHrSamples(stream: SanitizedStream): Array<{ efficiency: num
   return samples;
 }
 
+/** Mechanical work in kilojoules from power samples. */
 function computeWorkKj(powerSamples: TimedValue[]): number {
   return powerSamples.reduce((sum, sample) => sum + (sample.value * sample.deltaS) / 1000, 0);
 }
 
+/** Duration-weighted average power (watts). Includes zero-watt coasting samples. */
 function computeAveragePower(powerSamples: TimedValue[]): number | null {
   let weightedSum = 0;
   let durationS = 0;
@@ -69,6 +73,16 @@ function computeAveragePower(powerSamples: TimedValue[]): number | null {
   return weightedSum / durationS;
 }
 
+/**
+ * Cycling metrics from power-meter stream data.
+ *
+ * Computes Normalized Power (Coggan 30 s rolling fourth-power mean),
+ * Intensity Factor (NP/FTP), TSS, work, and aerobic decoupling (power/HR).
+ *
+ * Energy uses the standard kJ ≈ kcal convention (~24% gross efficiency).
+ *
+ * @returns Empty object when insufficient power samples or missing FTP
+ */
 export function computeCyclingMetrics(
   ctx: SportComputeContext,
 ): Pick<SportModuleResult, "sportPayload" | "energyKcal" | "decouplingPct"> {
@@ -103,7 +117,7 @@ export function computeCyclingMetrics(
 
   return {
     sportPayload,
-    energyKcal: workKj / 4.184,
+    energyKcal: cyclingEnergyKcalFromWorkKj(workKj),
     decouplingPct: splitEfficiencyDecoupling(collectPowerHrSamples(ctx.stream)),
   };
 }
