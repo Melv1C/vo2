@@ -13,13 +13,3 @@ export async function fetchActivities(signal?: AbortSignal) {
 
   return res.json();
 }
-
-export async function syncStreams() {
-  const res = await apiClient.activities.sync.streams.$post();
-
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status}`);
-  }
-
-  return res.json();
-}
