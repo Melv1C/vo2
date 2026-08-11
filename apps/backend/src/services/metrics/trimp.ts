@@ -1,3 +1,4 @@
+import { splitEfficiencyDecoupling } from "./coggan-rolling";
 import type {
   AthleteSex,
   SanitizedStream,
@@ -6,27 +7,44 @@ import type {
   UniversalMetricsResult,
 } from "./types";
 
-const BANISTER_Y = 0.64;
+/** Banister TRIMP scale factor A (sex-specific). Source: Banister & Hamilton 1991. */
+const BANISTER_A: Record<AthleteSex, number> = {
+  M: 0.64,
+  F: 0.86,
+};
+
+/** Banister TRIMP exponent B (sex-specific). Source: Banister & Hamilton 1991. */
 const BANISTER_B: Record<AthleteSex, number> = {
   M: 1.92,
   F: 1.67,
 };
 
+/** Edwards zone weights (zones 1–5). Source: Edwards 1993. */
 const EDWARDS_WEIGHTS = [1, 2, 3, 4, 5] as const;
+
+/** HR zone upper bounds as fraction of HRmax (zones 1–5). */
 const HR_ZONE_THRESHOLDS = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0] as const;
 
 export type HrSample = {
+  /** Sample duration in seconds. */
   deltaS: number;
+  /** Heart rate in bpm. */
   hr: number;
+  /** Ground speed in m/s, when available. */
   velocityMps: number | null;
 };
 
 export type { UniversalComputeContext, UniversalMetricsResult };
 
-function banisterExponent(sex: AthleteSex | null): number {
-  return BANISTER_B[sex ?? "M"];
-}
-
+/**
+ * Heart-rate reserve as a fraction of max reserve (0–1).
+ * HRR = (HR − HRrest) / (HRmax − HRrest), clamped to [0, 1].
+ *
+ * @param hr - Current heart rate (bpm)
+ * @param restingHr - Resting heart rate (bpm)
+ * @param maxHr - Maximum heart rate (bpm)
+ * @returns Fractional reserve, or 0 when max ≤ resting
+ */
 export function heartRateReserve(hr: number, restingHr: number, maxHr: number): number {
   const reserve = maxHr - restingHr;
   if (reserve <= 0) {
@@ -35,6 +53,18 @@ export function heartRateReserve(hr: number, restingHr: number, maxHr: number): 
   return Math.min(1, Math.max(0, (hr - restingHr) / reserve));
 }
 
+/**
+ * Banister TRIMP contribution for one sample.
+ * TRIMP = Δt(min) × HRR × A × e^(B × HRR).
+ * Male: A=0.64, B=1.92; Female: A=0.86, B=1.67.
+ *
+ * @param deltaS - Sample duration (seconds)
+ * @param hr - Heart rate (bpm)
+ * @param restingHr - Resting heart rate (bpm)
+ * @param maxHr - Maximum heart rate (bpm)
+ * @param sex - Athlete sex; defaults to male when null
+ * @returns TRIMP contribution (arbitrary units)
+ */
 export function banisterSampleContribution(
   deltaS: number,
   hr: number,
@@ -44,9 +74,18 @@ export function banisterSampleContribution(
 ): number {
   const hrReserve = heartRateReserve(hr, restingHr, maxHr);
   const deltaMin = deltaS / 60;
-  return deltaMin * hrReserve * BANISTER_Y * Math.exp(banisterExponent(sex) * hrReserve);
+  const athleteSex = sex ?? "M";
+  return (
+    deltaMin * hrReserve * BANISTER_A[athleteSex] * Math.exp(BANISTER_B[athleteSex] * hrReserve)
+  );
 }
 
+/**
+ * Collects moving HR samples from a sanitized stream for TRIMP/TSS computation.
+ *
+ * @param stream - Gap-segmented sanitized stream
+ * @returns HR samples with duration and optional velocity
+ */
 export function collectMovingHrSamples(stream: SanitizedStream): HrSample[] {
   const samples: HrSample[] = [];
 
@@ -86,6 +125,15 @@ function hrZoneIndex(hr: number, maxHr: number): number | null {
   return EDWARDS_WEIGHTS.length;
 }
 
+/**
+ * Banister TRIMP total for a set of HR samples.
+ * Returns null when no samples or missing HR anchors.
+ *
+ * @param samples - Moving HR samples
+ * @param restingHr - Resting heart rate (bpm)
+ * @param maxHr - Maximum heart rate (bpm)
+ * @param sex - Athlete sex
+ */
 export function computeBanisterTrimp(
   samples: HrSample[],
   restingHr: number,
@@ -104,6 +152,13 @@ export function computeBanisterTrimp(
   return total;
 }
 
+/**
+ * Edwards zone-weighted TRIMP.
+ * Each minute in zone Z contributes weight Z (1–5) to the total.
+ * Source: Edwards 1993.
+ *
+ * @returns null when no samples or maxHr ≤ 0
+ */
 export function computeEdwardsTrimp(samples: HrSample[], maxHr: number): number | null {
   if (samples.length === 0 || maxHr <= 0) {
     return null;
@@ -121,6 +176,15 @@ export function computeEdwardsTrimp(samples: HrSample[], maxHr: number): number 
   return total;
 }
 
+/**
+ * Heart-rate TSS from session average HR.
+ * hrTSS = duration(h) × (avgHR / LTHR)² × 100.
+ * One hour at LTHR yields 100.
+ *
+ * @param avgHr - Session average heart rate (bpm)
+ * @param movingTimeS - Moving duration (seconds)
+ * @param lthr - Lactate threshold heart rate (bpm)
+ */
 export function computeHrTss(avgHr: number, movingTimeS: number, lthr: number): number | null {
   if (lthr <= 0 || movingTimeS <= 0) {
     return null;
@@ -131,6 +195,11 @@ export function computeHrTss(avgHr: number, movingTimeS: number, lthr: number): 
   return durationH * intensity * intensity * 100;
 }
 
+/**
+ * Time spent in each HR zone (Edwards zones 1–5, % of HRmax).
+ *
+ * @returns Sorted list of { zone, seconds }
+ */
 export function computeHrTimeInZone(samples: HrSample[], maxHr: number): TimeInZone[] {
   const secondsByZone = new Map<number, number>();
 
@@ -145,33 +214,6 @@ export function computeHrTimeInZone(samples: HrSample[], maxHr: number): TimeInZ
   return [...secondsByZone.entries()]
     .sort(([left], [right]) => left - right)
     .map(([zone, seconds]) => ({ zone, seconds }));
-}
-
-export function computeVelocityDecoupling(samples: HrSample[]): number | null {
-  const paired = samples.filter(
-    (sample) => sample.velocityMps != null && sample.velocityMps > 0 && sample.hr > 0,
-  );
-
-  if (paired.length < 4) {
-    return null;
-  }
-
-  const midpoint = Math.floor(paired.length / 2);
-  const firstHalf = paired.slice(0, midpoint);
-  const secondHalf = paired.slice(midpoint);
-
-  const ef = (subset: HrSample[]) => {
-    const ratios = subset.map((sample) => sample.velocityMps! / sample.hr);
-    return ratios.reduce((sum, value) => sum + value, 0) / ratios.length;
-  };
-
-  const efFirst = ef(firstHalf);
-  const efSecond = ef(secondHalf);
-  if (efSecond <= 0) {
-    return null;
-  }
-
-  return (efFirst / efSecond - 1) * 100;
 }
 
 function summarizeHr(samples: HrSample[]): { avgHr: number | null; maxHr: number | null } {
@@ -195,6 +237,10 @@ function summarizeHr(samples: HrSample[]): { avgHr: number | null; maxHr: number
   };
 }
 
+/**
+ * Universal (sport-agnostic) metrics from HR stream data.
+ * Computes Banister/Edwards TRIMP, hrTSS, time-in-zone, and aerobic decoupling.
+ */
 export function computeUniversalMetrics(ctx: UniversalComputeContext): UniversalMetricsResult {
   const samples = collectMovingHrSamples(ctx.stream);
   const movingTimeS = ctx.stream.quality.movingTimeS;
@@ -208,7 +254,11 @@ export function computeUniversalMetrics(ctx: UniversalComputeContext): Universal
   const trimpEdwards = maxHr != null ? computeEdwardsTrimp(samples, maxHr) : null;
   const hrTss = avgHr != null && lthr != null ? computeHrTss(avgHr, movingTimeS, lthr) : null;
   const timeInZone = maxHr != null ? computeHrTimeInZone(samples, maxHr) : [];
-  const decouplingPct = computeVelocityDecoupling(samples);
+
+  const efficiencySamples = samples
+    .filter((sample) => sample.velocityMps != null && sample.velocityMps > 0 && sample.hr > 0)
+    .map((sample) => ({ efficiency: sample.velocityMps! / sample.hr }));
+  const decouplingPct = splitEfficiencyDecoupling(efficiencySamples);
 
   return {
     trimpBanister,

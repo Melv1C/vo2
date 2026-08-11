@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
 import { sanitizeStream } from "./sanitize-stream";
+import { testRawStreamInput } from "./test-stream-input";
 import {
+  banisterSampleContribution,
   collectMovingHrSamples,
   computeBanisterTrimp,
   computeEdwardsTrimp,
@@ -15,11 +17,13 @@ function steadyHrStream(
   hr: number,
   stepS = 1,
 ): ReturnType<typeof collectMovingHrSamples> {
-  const stream = sanitizeStream({
-    timeS: Array.from({ length: durationS / stepS }, (_, index) => index * stepS),
-    heartrate: Array.from({ length: durationS / stepS }, () => hr),
-    moving: Array.from({ length: durationS / stepS }, () => true),
-  });
+  const stream = sanitizeStream(
+    testRawStreamInput({
+      timeS: Array.from({ length: durationS / stepS }, (_, index) => index * stepS),
+      heartrate: Array.from({ length: durationS / stepS }, () => hr),
+      moving: Array.from({ length: durationS / stepS }, () => true),
+    }),
+  );
 
   return collectMovingHrSamples(stream);
 }
@@ -38,19 +42,36 @@ describe("computeHrTss", () => {
   });
 });
 
+describe("banisterSampleContribution", () => {
+  test("female scale factor is higher than male at same HRR", () => {
+    const male = banisterSampleContribution(60, 182, 65, 200, "M");
+    const female = banisterSampleContribution(60, 182, 65, 200, "F");
+    expect(female).toBeGreaterThan(male);
+  });
+});
+
 describe("computeBanisterTrimp", () => {
   test("returns finite TRIMP when HR samples have gaps", () => {
-    const stream = sanitizeStream({
-      timeS: [0, 1, 2, 120, 121, 122],
-      heartrate: [140, 141, 142, 150, 151, 152],
-      moving: [true, true, true, true, true, true],
-    });
+    const stream = sanitizeStream(
+      testRawStreamInput({
+        timeS: [0, 1, 2, 120, 121, 122],
+        heartrate: [140, 141, 142, 150, 151, 152],
+        moving: [true, true, true, true, true, true],
+      }),
+    );
     const samples = collectMovingHrSamples(stream);
     const trimp = computeBanisterTrimp(samples, 65, 200, "M");
 
     expect(trimp).not.toBeNull();
     expect(Number.isFinite(trimp)).toBe(true);
     expect(trimp!).toBeGreaterThan(0);
+  });
+
+  test("female TRIMP exceeds male for identical workload", () => {
+    const samples = steadyHrStream(3600, 182);
+    const male = computeBanisterTrimp(samples, 65, 200, "M")!;
+    const female = computeBanisterTrimp(samples, 65, 200, "F")!;
+    expect(female).toBeGreaterThan(male);
   });
 });
 
@@ -68,12 +89,14 @@ describe("computeEdwardsTrimp", () => {
 
 describe("computeUniversalMetrics", () => {
   test("populates universal metrics for a steady HR stream", () => {
-    const stream = sanitizeStream({
-      timeS: Array.from({ length: 3600 }, (_, index) => index),
-      heartrate: Array.from({ length: 3600 }, () => 182),
-      velocityMps: Array.from({ length: 3600 }, () => 3),
-      moving: Array.from({ length: 3600 }, () => true),
-    });
+    const stream = sanitizeStream(
+      testRawStreamInput({
+        timeS: Array.from({ length: 3600 }, (_, index) => index),
+        heartrate: Array.from({ length: 3600 }, () => 182),
+        velocityMps: Array.from({ length: 3600 }, () => 3),
+        moving: Array.from({ length: 3600 }, () => true),
+      }),
+    );
 
     const result = computeUniversalMetrics({
       stream,
@@ -84,6 +107,7 @@ describe("computeUniversalMetrics", () => {
         lthr: 182,
         ftp: 300,
         thresholdPaceMps: 3.26,
+        thresholdSwimPaceMps: null,
         weightKg: 77,
         heightCm: 180,
         birthdate: "2004-08-10",
