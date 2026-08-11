@@ -1,7 +1,12 @@
 import { Hono } from "hono";
 
 import { isAuthenticated } from "@/middlewares/use-auth";
-import { dailyMetricsQuery$, recomputeMetricsQuery$ } from "@/schemas/metrics";
+import {
+  dailyMetricsQuery$,
+  dailyTrainingLoadPoint$,
+  recomputeMetricsQuery$,
+  recomputeMetricsResponse$,
+} from "@/schemas/metrics";
 import { recomputeMetricsForUser } from "@/services/metrics/compute-activity-metrics";
 import { getDailyTrainingLoadSeries } from "@/services/metrics/rebuild-daily-training-load";
 
@@ -17,15 +22,7 @@ export const metricsRoutes = new Hono()
     const rows = await getDailyTrainingLoadSeries(userId, query.from, query.to);
 
     return c.json({
-      series: rows.map((row) => ({
-        date: row.date,
-        trainingLoad: row.trainingLoad,
-        ctl: row.ctl,
-        atl: row.atl,
-        tsb: row.tsb,
-        isRamping: row.isRamping,
-        activityCount: row.activityCount,
-      })),
+      series: rows.map((row) => dailyTrainingLoadPoint$.parse(row)),
     });
   })
   .post("/recompute", async (c) => {
@@ -42,8 +39,5 @@ export const metricsRoutes = new Hono()
       to: query.to ? new Date(`${query.to}T23:59:59.999Z`) : undefined,
     });
 
-    return c.json({
-      processed: summary.processed,
-      skipped: summary.skipped,
-    });
+    return c.json(recomputeMetricsResponse$.parse(summary));
   });

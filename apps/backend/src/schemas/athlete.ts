@@ -18,17 +18,18 @@ export type AthleteZoneTypeSchema = z.infer<typeof athleteZoneType$>;
 export const updateAthleteProfile$ = z
   .object({
     sex: athleteSex$.optional(),
-    birthdate: z.iso.date().optional().nullable(),
-    heightCm: z.number().min(100).max(250).optional().nullable(),
-    weightKg: z.number().min(30).max(200).optional().nullable(),
-    restingHr: z.number().int().min(30).max(120).optional().nullable(),
-    maxHr: z.number().int().min(100).max(250).optional().nullable(),
-    lthr: z.number().int().min(100).max(220).optional().nullable(),
-    ftp: z.number().int().min(50).max(600).optional().nullable(),
-    thresholdPaceMps: z.number().min(1).max(10).optional().nullable(),
+    birthdate: z.iso.date().nullish(),
+    heightCm: z.number().min(100).max(250).nullish(),
+    weightKg: z.number().min(30).max(200).nullish(),
+    restingHr: z.int().min(30).max(120).nullish(),
+    maxHr: z.int().min(100).max(250).nullish(),
+    lthr: z.int().min(100).max(220).nullish(),
+    ftp: z.int().min(50).max(600).nullish(),
+    thresholdPaceMps: z.number().min(1).max(10).nullish(),
+    thresholdSwimPaceMps: z.number().min(0.4).max(3).nullish(),
   })
   .refine((value) => Object.keys(value).length > 0, {
-    message: "At least one field is required",
+    error: "At least one field is required",
   });
 
 export type UpdateAthleteProfileInput = z.infer<typeof updateAthleteProfile$>;
@@ -55,6 +56,8 @@ export type AthleteProfileResponse = {
   ftpSource: AnchorSourceSchema | null;
   thresholdPaceMps: number | null;
   thresholdPaceSource: AnchorSourceSchema | null;
+  thresholdSwimPaceMps: number | null;
+  thresholdSwimPaceSource: AnchorSourceSchema | null;
   bmi: number | null;
   bsa: number | null;
 };
