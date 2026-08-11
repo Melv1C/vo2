@@ -20,7 +20,14 @@ import { loadAthleteContext } from "@/services/metrics/context";
 import { computeAnchorCrossChecks } from "@/services/metrics/cross-check";
 import type { AnchorSource } from "@/services/metrics/types";
 
-const ANCHOR_FIELDS = ["maxHr", "restingHr", "lthr", "ftp", "thresholdPaceMps"] as const;
+const ANCHOR_FIELDS = [
+  "maxHr",
+  "restingHr",
+  "lthr",
+  "ftp",
+  "thresholdPaceMps",
+  "thresholdSwimPaceMps",
+] as const;
 
 function toProfileResponse(profile: typeof athleteProfile.$inferSelect): AthleteProfileResponse {
   const bmi =
@@ -47,6 +54,8 @@ function toProfileResponse(profile: typeof athleteProfile.$inferSelect): Athlete
     ftpSource: profile.ftpSource ?? null,
     thresholdPaceMps: profile.thresholdPaceMps,
     thresholdPaceSource: profile.thresholdPaceSource ?? null,
+    thresholdSwimPaceMps: profile.thresholdSwimPaceMps,
+    thresholdSwimPaceSource: profile.thresholdSwimPaceSource ?? null,
     bmi,
     bsa,
   };
@@ -125,6 +134,10 @@ export const athleteRoutes = new Hono()
     if (body.thresholdPaceMps !== undefined) {
       update.thresholdPaceMps = body.thresholdPaceMps;
       update.thresholdPaceSource = "manual" satisfies AnchorSource;
+    }
+    if (body.thresholdSwimPaceMps !== undefined) {
+      update.thresholdSwimPaceMps = body.thresholdSwimPaceMps;
+      update.thresholdSwimPaceSource = "manual" satisfies AnchorSource;
     }
 
     const [after] = await db

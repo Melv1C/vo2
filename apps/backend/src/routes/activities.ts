@@ -7,6 +7,7 @@ import {
   runSyncForUser,
 } from "@/integrations/strava/sync-orchestrator";
 import { isAuthenticated } from "@/middlewares/use-auth";
+import { activityMetricsResponse$ } from "@/schemas/metrics";
 import { getActivityMetricsForUser } from "@/services/metrics/compute-activity-metrics";
 
 const emptySummary = {
@@ -92,26 +93,5 @@ export const activitiesRoutes = new Hono()
       return c.json({ message: "Metrics not found" }, 404);
     }
 
-    return c.json({
-      activityId: row.metrics.activityId,
-      sportFamily: row.metrics.sportFamily,
-      trainingLoad: row.metrics.trainingLoad,
-      loadSource: row.metrics.loadSource,
-      trimpBanister: row.metrics.trimpBanister,
-      trimpEdwards: row.metrics.trimpEdwards,
-      hrTss: row.metrics.hrTss,
-      avgHr: row.metrics.avgHr,
-      maxHr: row.metrics.maxHr,
-      movingTimeS: row.metrics.movingTimeS,
-      decouplingPct: row.metrics.decouplingPct,
-      timeInZone: row.metrics.timeInZone ?? [],
-      energyKcal: row.metrics.energyKcal,
-      weightKgUsed: row.metrics.weightKgUsed,
-      sportPayload: row.metrics.sportPayload,
-      crossChecks: row.metrics.crossChecks,
-      dataQuality: row.metrics.dataQuality,
-      anchorSnapshot: row.metrics.anchorSnapshot,
-      metricsVersion: row.metrics.metricsVersion,
-      computedAt: row.metrics.computedAt.toISOString(),
-    });
+    return c.json(activityMetricsResponse$.parse(row.metrics));
   });

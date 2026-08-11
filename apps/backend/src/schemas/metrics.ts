@@ -1,8 +1,12 @@
+import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
+
+import { activityMetrics, dailyTrainingLoad } from "@/database/entities/activity-metrics";
 
 export const crossCheckResult$ = z.object({
   tssVsHrtssPct: z.number().nullable(),
   rtssVsHrtssPct: z.number().nullable(),
+  stssVsHrtssPct: z.number().nullable(),
   banisterVsEdwardsPct: z.number().nullable(),
   decouplingSanity: z.boolean(),
   coverageOk: z.boolean(),
@@ -14,26 +18,14 @@ export const dailyMetricsQuery$ = z.object({
   to: z.iso.date().optional(),
 });
 
-export const dailyTrainingLoadPoint$ = z.object({
-  date: z.string(),
-  trainingLoad: z.number(),
-  ctl: z.number(),
-  atl: z.number(),
-  tsb: z.number(),
-  isRamping: z.boolean(),
-  activityCount: z.number().int(),
-});
-
 export const recomputeMetricsQuery$ = z.object({
-  scope: z.enum(["all", "stale"]).optional().default("all"),
+  scope: z.enum(["all", "stale"]).default("all"),
   from: z.iso.date().optional(),
   to: z.iso.date().optional(),
 });
 
-export type RecomputeMetricsQuery = z.infer<typeof recomputeMetricsQuery$>;
-
 export const timeInZone$ = z.object({
-  zone: z.number().int(),
+  zone: z.int(),
   seconds: z.number(),
 });
 
@@ -64,7 +56,15 @@ export const runningPayload$ = z.object({
   avgCadence: z.number().nullable(),
 });
 
-export const sportPayload$ = z.union([cyclingPayload$, runningPayload$]);
+export const swimmingPayload$ = z.object({
+  nspMps: z.number(),
+  swimIntensityFactor: z.number(),
+  sTss: z.number(),
+  efficiencyIndex: z.number(),
+  avgCadence: z.number().nullable(),
+});
+
+export const sportPayload$ = z.union([cyclingPayload$, runningPayload$, swimmingPayload$]);
 
 export const anchorSnapshot$ = z.object({
   maxHr: z.number().nullable(),
@@ -72,38 +72,38 @@ export const anchorSnapshot$ = z.object({
   lthr: z.number().nullable(),
   ftp: z.number().nullable(),
   thresholdPaceMps: z.number().nullable(),
+  thresholdSwimPaceMps: z.number().nullable(),
   weightKg: z.number().nullable(),
   sex: z.enum(["M", "F"]).nullable(),
 });
 
-export const activityMetricsResponse$ = z.object({
-  activityId: z.uuid(),
-  sportFamily: z.enum(["cycling", "running", "walking", "other"]),
-  trainingLoad: z.number().nullable(),
-  loadSource: z.enum(["tss", "r_tss", "hr_tss", "trimp_equiv"]).nullable(),
-  trimpBanister: z.number().nullable(),
-  trimpEdwards: z.number().nullable(),
-  hrTss: z.number().nullable(),
-  avgHr: z.number().nullable(),
-  maxHr: z.number().nullable(),
-  movingTimeS: z.number(),
-  decouplingPct: z.number().nullable(),
-  timeInZone: z.array(timeInZone$),
-  energyKcal: z.number().nullable(),
-  weightKgUsed: z.number().nullable(),
+const activityMetricsRow$ = createSelectSchema(activityMetrics, {
+  sportFamily: z.enum(["cycling", "running", "swimming", "walking", "other"]),
+  loadSource: z.enum(["tss", "r_tss", "s_tss", "hr_tss", "trimp_equiv"]).nullable(),
+  timeInZone: z.array(timeInZone$).nullable(),
   sportPayload: sportPayload$.nullable(),
   crossChecks: crossCheckResult$.nullable(),
   dataQuality: dataQualityReport$,
   anchorSnapshot: anchorSnapshot$,
-  metricsVersion: z.number().int(),
-  computedAt: z.string(),
 });
+
+/** API response for GET /activities/:id/metrics — derived from activity_metrics via drizzle-zod. */
+export const activityMetricsResponse$ = activityMetricsRow$.transform((row) => ({
+  ...row,
+  computedAt: row.computedAt.toISOString(),
+  timeInZone: row.timeInZone ?? [],
+}));
 
 export type ActivityMetricsResponse = z.infer<typeof activityMetricsResponse$>;
 
-export const recomputeMetricsResponse$ = z.object({
-  processed: z.number().int(),
-  skipped: z.number().int(),
+/** Daily CTL/ATL/TSB point — derived from daily_training_load, userId omitted. */
+export const dailyTrainingLoadPoint$ = createSelectSchema(dailyTrainingLoad).omit({ userId: true });
+
+export const dailyTrainingLoadSeriesResponse$ = z.object({
+  series: z.array(dailyTrainingLoadPoint$),
 });
 
-export type RecomputeMetricsResponse = z.infer<typeof recomputeMetricsResponse$>;
+export const recomputeMetricsResponse$ = z.object({
+  processed: z.int(),
+  skipped: z.int(),
+});
