@@ -5,7 +5,6 @@
  * Run: bun run db:audit
  */
 import "varlock/auto-load";
-
 import { sql } from "drizzle-orm";
 
 import { dbWithoutLogging as db } from "@/database/client";
@@ -83,12 +82,15 @@ async function main() {
     `,
   );
 
-  await query("Metrics version distribution", sql`
+  await query(
+    "Metrics version distribution",
+    sql`
     select metrics_version, count(*)::int as rows
     from activity_metrics
     group by metrics_version
     order by metrics_version
-  `);
+  `,
+  );
 
   await query(
     "Load source distribution",
