@@ -22,7 +22,3 @@ export function getUniversalModule(): UniversalModule {
 export function getSportModule(family: SportFamily): SportModule | undefined {
   return modules.get(family);
 }
-
-export function listSportModules(): SportModule[] {
-  return [...modules.values()];
-}

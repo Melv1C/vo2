@@ -3,11 +3,16 @@ import { and, eq, gte, lte, lt, or, sql } from "drizzle-orm";
 import { db } from "@/database";
 import { activityMetrics } from "@/database/entities/activity-metrics";
 import { activityStreams, stravaActivities } from "@/database/entities/strava-activities";
-import { loadAthleteContext } from "@/services/metrics/context";
+import {
+  type AthleteContextCache,
+  loadAthleteContext,
+  loadAthleteProfile,
+  loadWeightSamples,
+} from "@/services/metrics/context";
 import { computeActivityCrossChecks } from "@/services/metrics/cross-check";
 import { resolveTrainingLoad } from "@/services/metrics/load-resolver";
-import { getSportModule, getUniversalModule } from "@/services/metrics/registry";
 import { rebuildDailyTrainingLoad } from "@/services/metrics/rebuild-daily-training-load";
+import { getSportModule, getUniversalModule } from "@/services/metrics/registry";
 import { sanitizeStream } from "@/services/metrics/sanitize-stream";
 import { resolveSportFamily } from "@/services/metrics/sport-family";
 import type {
@@ -23,14 +28,20 @@ import "./bootstrap";
 export type ComputeActivityResult = {
   activityId: string;
   computed: boolean;
+  /** Local calendar date (YYYY-MM-DD) when computed successfully. */
+  localDate?: string;
   reason?: string;
 };
 
 export type RecomputeSummary = {
   processed: number;
   skipped: number;
-  results: ComputeActivityResult[];
 };
+
+function resolveActivityLocalDate(activity: typeof stravaActivities.$inferSelect): string {
+  const local = activity.startDateLocal ?? activity.startDate;
+  return local.toISOString().slice(0, 10);
+}
 
 function buildAnchorSnapshot(athlete: AthleteContext): AnchorSnapshot {
   return {
@@ -39,6 +50,7 @@ function buildAnchorSnapshot(athlete: AthleteContext): AnchorSnapshot {
     lthr: athlete.lthr,
     ftp: athlete.ftp,
     thresholdPaceMps: athlete.thresholdPaceMps,
+    thresholdSwimPaceMps: athlete.thresholdSwimPaceMps,
     weightKg: athlete.weightKg,
     sex: athlete.sex,
   };
@@ -58,8 +70,18 @@ function toRawStreamInput(stream: typeof activityStreams.$inferSelect): RawStrea
   };
 }
 
+export type ComputeActivityOptions = {
+  /** Preloaded profile + weight history to avoid per-activity DB reads during batch sync. */
+  athleteCache?: AthleteContextCache;
+};
+
+/**
+ * Computes and persists metrics for one activity with ready streams.
+ * Side effect: upserts a row in `activity_metrics`.
+ */
 export async function computeAndPersistActivityMetrics(
   activityId: string,
+  options?: ComputeActivityOptions,
 ): Promise<ComputeActivityResult> {
   const [row] = await db
     .select({
@@ -74,7 +96,11 @@ export async function computeAndPersistActivityMetrics(
     return { activityId, computed: false, reason: "activity_not_ready" };
   }
 
-  const athlete = await loadAthleteContext(row.activity.userId, row.activity.startDate);
+  const athlete = await loadAthleteContext(
+    row.activity.userId,
+    row.activity.startDate,
+    options?.athleteCache,
+  );
   const sanitized = sanitizeStream(toRawStreamInput(row.stream));
   const sportFamily = resolveSportFamily(row.activity.sportType);
   const universal = getUniversalModule().compute({ stream: sanitized, athlete });
@@ -171,9 +197,14 @@ export async function computeAndPersistActivityMetrics(
       },
     });
 
-  return { activityId, computed: true };
+  return {
+    activityId,
+    computed: true,
+    localDate: resolveActivityLocalDate(row.activity),
+  };
 }
 
+/** Recomputes metrics for all ready activities in a date range (or stale only). */
 export async function recomputeMetricsForUser(
   userId: string,
   options: { from?: Date; to?: Date; scope?: "all" | "stale" } = {},
@@ -206,13 +237,16 @@ export async function recomputeMetricsForUser(
     .where(and(...filters))
     .orderBy(stravaActivities.startDate);
 
-  const results: ComputeActivityResult[] = [];
+  const athleteCache: AthleteContextCache = {
+    profile: await loadAthleteProfile(userId),
+    weightSamples: await loadWeightSamples(userId),
+  };
+
   let processed = 0;
   let skipped = 0;
 
   for (const activity of activities) {
-    const result = await computeAndPersistActivityMetrics(activity.id);
-    results.push(result);
+    const result = await computeAndPersistActivityMetrics(activity.id, { athleteCache });
     if (result.computed) {
       processed += 1;
     } else {
@@ -225,7 +259,7 @@ export async function recomputeMetricsForUser(
     await rebuildDailyTrainingLoad(userId, fromDate);
   }
 
-  return { processed, skipped, results };
+  return { processed, skipped };
 }
 
 export async function getActivityMetricsForUser(activityId: string, userId: string) {

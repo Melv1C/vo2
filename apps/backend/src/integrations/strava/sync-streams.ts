@@ -1,12 +1,7 @@
 import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@/database";
-import { activitySyncState } from "@/database/entities/activity-sync-state";
-import {
-  activityStreams,
-  stravaActivities,
-  type StreamsStatus,
-} from "@/database/entities/strava-activities";
+import { activityStreams, stravaActivities } from "@/database/entities/strava-activities";
 
 import { isRateLimitError, stravaRequest } from "./client";
 import type { StreamSet } from "./index";
@@ -55,20 +50,6 @@ export type StreamBatchResult = {
   rateLimited: boolean;
   readyActivityIds: string[];
 };
-
-function toResult(
-  row: typeof activitySyncState.$inferSelect,
-  fetchedThisRun: number,
-  rateLimited: boolean,
-): StreamSyncResult {
-  return {
-    streamsReadyCount: row.streamsReadyCount,
-    streamsPendingCount: row.streamsPendingCount,
-    lastStreamSyncedAt: row.lastStreamSyncedAt?.toISOString() ?? null,
-    fetchedThisRun,
-    rateLimited,
-  };
-}
 
 function splitLatLng(latlng: Array<[number, number]> | undefined): {
   lat: number[] | null;
@@ -353,31 +334,4 @@ export async function refreshSyncCounts(userId: string) {
     streamsReadyCount: counts?.streamsReadyCount ?? 0,
     streamsPendingCount: counts?.streamsPendingCount ?? 0,
   };
-}
-
-export async function getStreamSyncState(userId: string): Promise<StreamSyncResult | null> {
-  const [row] = await db
-    .select()
-    .from(activitySyncState)
-    .where(eq(activitySyncState.userId, userId));
-
-  if (!row) {
-    return null;
-  }
-
-  return toResult(row, 0, false);
-}
-
-/** One-time repair: align queue status with HR summary data. */
-export async function reconcileStreamQueue(userId: string): Promise<void> {
-  await db
-    .update(stravaActivities)
-    .set({
-      streamsStatus: sql<StreamsStatus>`case
-        when ${stravaActivities.streamsStatus} = 'ready' then 'ready'
-        when ${stravaActivities.averageHeartrate} is not null then 'pending'
-        else 'skipped'
-      end`,
-    })
-    .where(eq(stravaActivities.userId, userId));
 }

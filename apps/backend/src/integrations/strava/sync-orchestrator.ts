@@ -416,23 +416,6 @@ async function runSync(
   return row ? toSummary(row, upserted, streamsFetched, rateLimited) : null;
 }
 
-export async function getActivitiesSummary(userId: string): Promise<ActivitySyncSummary | null> {
-  const [row] = await db
-    .select()
-    .from(activitySyncState)
-    .where(eq(activitySyncState.userId, userId));
-
-  if (!row) {
-    return null;
-  }
-
-  return {
-    activitiesCount: row.activitiesCount,
-    lastFetchedAt: row.lastSummarySyncedAt?.toISOString() ?? null,
-    newActivities: 0,
-  };
-}
-
 export async function getSyncState(userId: string): Promise<SyncResult | null> {
   const [row] = await db
     .select()
@@ -496,22 +479,6 @@ export async function runSyncForUser(
   } finally {
     syncLocks.delete(userId);
   }
-}
-
-/** @deprecated Use runSyncForUser */
-export async function triggerActivitySyncForUser(
-  userId: string,
-  options?: { force?: boolean },
-): Promise<ActivitySyncSummary | null> {
-  const result = await runSyncForUser(userId, options);
-  if (!result) {
-    return null;
-  }
-  return {
-    activitiesCount: result.activitiesCount,
-    lastFetchedAt: result.lastFetchedAt,
-    newActivities: result.newActivities,
-  };
 }
 
 /** Kick sync in background; no-op if already running. */

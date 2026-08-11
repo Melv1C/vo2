@@ -1,7 +1,8 @@
-import { and, desc, eq, lte } from "drizzle-orm";
-
 import { db } from "@/database";
-import { athleteMetricHistory, athleteProfile } from "@/database/entities/athlete-profile";
+import { athleteMetricHistory } from "@/database/entities/athlete-profile";
+import { loadAthleteProfile, loadWeightSamples } from "@/services/metrics/context";
+
+import { resolveWeightAtDate } from "./body-metrics-core";
 
 export {
   computeBmi,
@@ -10,48 +11,14 @@ export {
   type WeightSample,
 } from "./body-metrics-core";
 
-export async function loadWeightHistory(userId: string) {
-  const rows = await db
-    .select({
-      value: athleteMetricHistory.value,
-      recordedAt: athleteMetricHistory.recordedAt,
-    })
-    .from(athleteMetricHistory)
-    .where(and(eq(athleteMetricHistory.userId, userId), eq(athleteMetricHistory.metric, "weight")))
-    .orderBy(desc(athleteMetricHistory.recordedAt));
-
-  return rows.map((row) => ({
-    value: row.value,
-    recordedAt: row.recordedAt,
-  }));
-}
-
+/** Resolves weight at a date from history, falling back to profile weight. */
 export async function getWeightKgAtDate(userId: string, at: Date): Promise<number | null> {
-  const [profile] = await db
-    .select({ weightKg: athleteProfile.weightKg })
-    .from(athleteProfile)
-    .where(eq(athleteProfile.userId, userId));
-
-  const [latestBefore] = await db
-    .select({ value: athleteMetricHistory.value })
-    .from(athleteMetricHistory)
-    .where(
-      and(
-        eq(athleteMetricHistory.userId, userId),
-        eq(athleteMetricHistory.metric, "weight"),
-        lte(athleteMetricHistory.recordedAt, at),
-      ),
-    )
-    .orderBy(desc(athleteMetricHistory.recordedAt))
-    .limit(1);
-
-  if (latestBefore) {
-    return latestBefore.value;
-  }
-
-  return profile?.weightKg ?? null;
+  const profile = await loadAthleteProfile(userId);
+  const weightSamples = await loadWeightSamples(userId);
+  return resolveWeightAtDate(weightSamples, profile?.weightKg ?? null, at);
 }
 
+/** Records a user-entered weight sample (append-only). */
 export async function appendWeightSample(
   userId: string,
   weightKg: number,
