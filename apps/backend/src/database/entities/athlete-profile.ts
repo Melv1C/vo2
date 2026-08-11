@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import {
   date,
   doublePrecision,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -31,10 +32,12 @@ export const athleteProfile = pgTable("athlete_profile", {
   lthr: integer("lthr"),
   ftp: integer("ftp"),
   thresholdPaceMps: doublePrecision("threshold_pace_mps"),
+  thresholdSwimPaceMps: doublePrecision("threshold_swim_pace_mps"),
   maxHrSource: text("max_hr_source").$type<AnchorSource>(),
   lthrSource: text("lthr_source").$type<AnchorSource>(),
   ftpSource: text("ftp_source").$type<AnchorSource>(),
   thresholdPaceSource: text("threshold_pace_source").$type<AnchorSource>(),
+  thresholdSwimPaceSource: text("threshold_swim_pace_source").$type<AnchorSource>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -69,16 +72,26 @@ export const athleteZones = pgTable(
 export type AthleteMetric = "weight" | "ftp" | "resting_hr" | "max_hr" | "lthr" | "height";
 
 /** Append-only user-entered metric samples (never sourced from Strava). */
-export const athleteMetricHistory = pgTable("athlete_metric_history", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  metric: text("metric").$type<AthleteMetric>().notNull(),
-  value: doublePrecision("value").notNull(),
-  recordedAt: timestamp("recorded_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const athleteMetricHistory = pgTable(
+  "athlete_metric_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    metric: text("metric").$type<AthleteMetric>().notNull(),
+    value: doublePrecision("value").notNull(),
+    recordedAt: timestamp("recorded_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("athlete_metric_history_user_metric_recorded_at_idx").on(
+      table.userId,
+      table.metric,
+      table.recordedAt,
+    ),
+  ],
+);
 
 export const athleteProfileRelations = relations(athleteProfile, ({ one }) => ({
   user: one(user, {
