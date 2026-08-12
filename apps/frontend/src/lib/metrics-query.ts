@@ -1,12 +1,16 @@
 import { queryOptions } from "@tanstack/react-query";
 
-import { defaultDailyMetricsRange, fetchDailyMetrics } from "@/lib/metrics-api";
+import {
+  defaultDailyMetricsRange,
+  fetchDailyMetrics,
+  type DailyMetricsRange,
+} from "@/lib/metrics-api";
 
-const range = defaultDailyMetricsRange();
+export const dailyMetricsQueryKey = ["metrics", "daily"] as const;
 
-export const dailyMetricsQueryKey = ["metrics", "daily", range] as const;
-
-export const dailyMetricsQueryOptions = queryOptions({
-  queryKey: dailyMetricsQueryKey,
-  queryFn: ({ signal }) => fetchDailyMetrics(range, signal),
-});
+export function dailyMetricsQueryOptions(range: DailyMetricsRange = defaultDailyMetricsRange()) {
+  return queryOptions({
+    queryKey: [...dailyMetricsQueryKey, range] as const,
+    queryFn: ({ signal }) => fetchDailyMetrics(range, signal),
+  });
+}
