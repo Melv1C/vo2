@@ -15,11 +15,11 @@ import {
 } from "@repo/ui/components/ui/chart";
 import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/ui/toggle-group";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ReferenceArea,
   ReferenceLine,
   XAxis,
@@ -172,7 +172,7 @@ function FitnessChart({ series }: { series: DailyMetricPoint[] }) {
       </CardHeader>
       <CardContent>
         <ChartContainer config={fitnessChartConfig} className="min-h-[240px] w-full">
-          <AreaChart accessibilityLayer data={series} margin={{ left: 12, right: 12 }}>
+          <LineChart accessibilityLayer data={series} margin={{ left: 12, right: 12 }}>
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="date"
@@ -198,45 +198,28 @@ function FitnessChart({ series }: { series: DailyMetricPoint[] }) {
               content={<ChartTooltipContent labelFormatter={formatFullDate} indicator="line" />}
             />
             <ChartLegend content={<ChartLegendContent />} />
-            <defs>
-              <linearGradient id="fillCtl" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-ctl)" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="var(--color-ctl)" stopOpacity={0.1} />
-              </linearGradient>
-              <linearGradient id="fillAtl" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-atl)" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="var(--color-atl)" stopOpacity={0.1} />
-              </linearGradient>
-              <linearGradient id="fillTsb" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-tsb)" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="var(--color-tsb)" stopOpacity={0.1} />
-              </linearGradient>
-            </defs>
-            <Area
+            <Line
               dataKey="ctl"
               type="monotone"
-              fill="url(#fillCtl)"
-              fillOpacity={0.4}
               stroke="var(--color-ctl)"
               strokeWidth={2}
+              dot={false}
             />
-            <Area
+            <Line
               dataKey="atl"
               type="monotone"
-              fill="url(#fillAtl)"
-              fillOpacity={0.4}
               stroke="var(--color-atl)"
               strokeWidth={2}
+              dot={false}
             />
-            <Area
+            <Line
               dataKey="tsb"
               type="monotone"
-              fill="url(#fillTsb)"
-              fillOpacity={0.4}
               stroke="var(--color-tsb)"
               strokeWidth={2}
+              dot={false}
             />
-          </AreaChart>
+          </LineChart>
         </ChartContainer>
       </CardContent>
     </Card>
