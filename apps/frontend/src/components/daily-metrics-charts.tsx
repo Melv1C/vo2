@@ -131,32 +131,29 @@ function FitnessChart({ series }: { series: DailyMetricPoint[] }) {
         <CardTitle className="flex items-center gap-1">
           Fitness & fatigue
           <MetricInfo label="About fitness and fatigue">
-            CTL is chronic training load (42-day fitness). ATL is acute training
-            load (7-day fatigue). TSB is training stress balance (form: previous
-            CTL minus ATL). Background bands are form zones for TSB (Intervals.icu
-            absolute defaults).
+            CTL is chronic training load (42-day fitness). ATL is acute training load (7-day
+            fatigue). TSB is training stress balance (form: previous CTL minus ATL). Background
+            bands are form zones for TSB (Intervals.icu absolute defaults).
           </MetricInfo>
         </CardTitle>
         <CardDescription className="flex flex-wrap items-center gap-3">
           <span className="inline-flex items-center gap-1">
             CTL
             <MetricInfo label="About CTL">
-              Chronic Training Load: 42-day exponentially weighted average of
-              daily load (fitness).
+              Chronic Training Load: 42-day exponentially weighted average of daily load (fitness).
             </MetricInfo>
           </span>
           <span className="inline-flex items-center gap-1">
             ATL
             <MetricInfo label="About ATL">
-              Acute Training Load: 7-day exponentially weighted average of daily
-              load (fatigue).
+              Acute Training Load: 7-day exponentially weighted average of daily load (fatigue).
             </MetricInfo>
           </span>
           <span className="inline-flex items-center gap-1">
             TSB
             <MetricInfo label="About TSB">
-              Training Stress Balance: previous day&apos;s CTL minus ATL (form /
-              freshness). Zone colors apply to this series.
+              Training Stress Balance: previous day&apos;s CTL minus ATL (form / freshness). Zone
+              colors apply to this series.
             </MetricInfo>
           </span>
         </CardDescription>
@@ -164,7 +161,7 @@ function FitnessChart({ series }: { series: DailyMetricPoint[] }) {
           {FORM_ZONES.map((zone) => (
             <span key={zone.key} className="inline-flex items-center gap-1.5 text-xs">
               <span
-                className="size-2.5 shrink-0 rounded-[2px] ring-1 ring-border/40"
+                className="ring-border/40 size-2.5 shrink-0 rounded-[2px] ring-1"
                 style={{ backgroundColor: zone.fill }}
               />
               {zone.label}
@@ -198,12 +195,7 @@ function FitnessChart({ series }: { series: DailyMetricPoint[] }) {
             ))}
             <ReferenceLine y={0} stroke="var(--border)" strokeDasharray="3 3" />
             <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  labelFormatter={formatFullDate}
-                  indicator="line"
-                />
-              }
+              content={<ChartTooltipContent labelFormatter={formatFullDate} indicator="line" />}
             />
             <ChartLegend content={<ChartLegendContent />} />
             <defs>
@@ -276,9 +268,7 @@ function DailyLoadChart({ series }: { series: DailyMetricPoint[] }) {
               tickFormatter={formatShortDate}
             />
             <YAxis tickLine={false} axisLine={false} width={40} />
-            <ChartTooltip
-              content={<ChartTooltipContent labelFormatter={formatFullDate} />}
-            />
+            <ChartTooltip content={<ChartTooltipContent labelFormatter={formatFullDate} />} />
             <ChartLegend content={<ChartLegendContent />} />
             <Bar dataKey="trainingLoad" fill="var(--color-trainingLoad)" radius={2} />
           </BarChart>
@@ -301,10 +291,7 @@ function ActivitiesPerDayChart({ series }: { series: DailyMetricPoint[] }) {
         <CardDescription>Count of loaded activities per day</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer
-          config={activitiesChartConfig}
-          className="min-h-[240px] w-full"
-        >
+        <ChartContainer config={activitiesChartConfig} className="min-h-[240px] w-full">
           <BarChart accessibilityLayer data={series} margin={{ left: 12, right: 12 }}>
             <CartesianGrid vertical={false} />
             <XAxis
@@ -315,21 +302,10 @@ function ActivitiesPerDayChart({ series }: { series: DailyMetricPoint[] }) {
               minTickGap={32}
               tickFormatter={formatShortDate}
             />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              width={40}
-              allowDecimals={false}
-            />
-            <ChartTooltip
-              content={<ChartTooltipContent labelFormatter={formatFullDate} />}
-            />
+            <YAxis tickLine={false} axisLine={false} width={40} allowDecimals={false} />
+            <ChartTooltip content={<ChartTooltipContent labelFormatter={formatFullDate} />} />
             <ChartLegend content={<ChartLegendContent />} />
-            <Bar
-              dataKey="activityCount"
-              fill="var(--color-activityCount)"
-              radius={2}
-            />
+            <Bar dataKey="activityCount" fill="var(--color-activityCount)" radius={2} />
           </BarChart>
         </ChartContainer>
       </CardContent>
