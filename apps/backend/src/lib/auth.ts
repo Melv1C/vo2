@@ -51,6 +51,8 @@ export const auth = betterAuth({
           clientSecret: ENV.STRAVA_CLIENT_SECRET,
           authorizationUrl: "https://www.strava.com/oauth/authorize",
           tokenUrl: "https://www.strava.com/oauth/token",
+          // Strava's OAuth flow predates OAuth 2.1 PKCE requirements.
+          pkce: false,
           scopes: ["read", "read_all", "profile:read_all", "activity:read", "activity:read_all"],
 
           mapProfileToUser: (profile) => {
