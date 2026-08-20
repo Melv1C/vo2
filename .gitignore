@@ -17,6 +17,7 @@ env.d.ts
 
 # Testing
 coverage
+.playwright-cli
 
 # Turbo
 .turbo
