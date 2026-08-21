@@ -123,8 +123,8 @@ function Home() {
                 <Button
                   variant="outline"
                   onClick={() =>
-                    signIn.oauth2({
-                      providerId: "strava",
+                    signIn.social({
+                      provider: "strava",
                       callbackURL: window.location.origin,
                     })
                   }
