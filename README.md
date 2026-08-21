@@ -4,13 +4,13 @@ Endurance-training analytics for athletes, built around [Strava](https://www.str
 
 ## Stack
 
-| | |
-|---|---|
-| Monorepo | Turborepo + Bun workspaces |
-| Backend (`apps/backend`) | Hono on Bun, Drizzle ORM + PostgreSQL, Better Auth (Strava OAuth) |
-| Frontend (`apps/frontend`) | React 19 + Vite, TanStack Router/Query, Tailwind v4, recharts |
-| Shared UI (`packages/ui`) | shadcn-style component library |
-| Tooling | TypeScript, oxlint/oxfmt, varlock, Changesets |
+|                            |                                                                   |
+| -------------------------- | ----------------------------------------------------------------- |
+| Monorepo                   | Turborepo + Bun workspaces                                        |
+| Backend (`apps/backend`)   | Hono on Bun, Drizzle ORM + PostgreSQL, Better Auth (Strava OAuth) |
+| Frontend (`apps/frontend`) | React 19 + Vite, TanStack Router/Query, Tailwind v4, recharts     |
+| Shared UI (`packages/ui`)  | shadcn-style component library                                    |
+| Tooling                    | TypeScript, oxlint/oxfmt, varlock, Changesets                     |
 
 ## Getting started
 
@@ -39,15 +39,15 @@ A full production-like stack is available via `docker-compose.full.yml` (postgre
 
 ## Scripts
 
-| Command | Description |
-|---|---|
-| `bun run dev` | Run all apps in dev mode |
-| `bun run build` | Build all workspaces |
-| `bun run check` | Format check + lint |
-| `bun run format` | Format with oxfmt |
-| `bun run docker:db` | Start/stop the dev Postgres |
+| Command                                 | Description                 |
+| --------------------------------------- | --------------------------- |
+| `bun run dev`                           | Run all apps in dev mode    |
+| `bun run build`                         | Build all workspaces        |
+| `bun run check`                         | Format check + lint         |
+| `bun run format`                        | Format with oxfmt           |
+| `bun run docker:db`                     | Start/stop the dev Postgres |
 | `bun run env:generate` / `env:validate` | Manage env vars via varlock |
-| `bun run release:*` | Changesets release flow |
+| `bun run release:*`                     | Changesets release flow     |
 
 ## Deployment
 
