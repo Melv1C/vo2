@@ -7,6 +7,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { DailyMetricsCharts } from "@/components/daily-metrics-charts";
+import { TrainingAssistant } from "@/components/training-assistant";
 import { activitiesQueryOptions } from "@/lib/activities-query";
 import { authClient, signIn, signOut, useSession } from "@/lib/auth-client";
 import {
@@ -138,12 +139,15 @@ function Home() {
         </Card>
 
         {session && (
-          <DailyMetricsCharts
-            series={dailyMetrics?.series}
-            isLoading={dailyMetricsLoading}
-            rangePreset={rangePreset}
-            onRangePresetChange={setRangePreset}
-          />
+          <>
+            <DailyMetricsCharts
+              series={dailyMetrics?.series}
+              isLoading={dailyMetricsLoading}
+              rangePreset={rangePreset}
+              onRangePresetChange={setRangePreset}
+            />
+            <TrainingAssistant />
+          </>
         )}
       </div>
     </TooltipProvider>
