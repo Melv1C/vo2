@@ -42,6 +42,9 @@ export const chatRoutes = new Hono().use(isAuthenticated).post("/", async (c) =>
     modelOptions: {
       temperature: 0.2,
       maxCompletionTokens: 900,
+      reasoning: {
+        effort: "low",
+      },
     },
     threadId: params.threadId,
     runId: params.runId,
