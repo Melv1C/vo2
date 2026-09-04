@@ -35,6 +35,8 @@ import {
   type PartProps,
   type ToolProps,
 } from "@tanstack/ai-react/ui";
+import { streamingMarkdownExtension } from "@tanstack/markdown/extensions/streaming";
+import { Markdown } from "@tanstack/markdown/react";
 import {
   BotIcon,
   CheckIcon,
@@ -187,8 +189,30 @@ function ChatMessage({ message, Parts }: MessageProps<ChatOptions>) {
 function TextPart({ part }: PartProps<ChatOptions, "text">) {
   return (
     <Bubble variant={part.type === "text" ? "muted" : "outline"}>
-      <BubbleContent className="text-xs leading-relaxed whitespace-pre-wrap">
-        {part.type === "text" ? part.content : null}
+      <BubbleContent
+        className={
+          "text-xs leading-relaxed " +
+          "[&_p+ p]:mt-2 [&_p]:my-0 " +
+          "[&_h1]:mt-2 [&_h1]:mb-1 [&_h1]:text-sm [&_h1]:font-semibold " +
+          "[&_h2]:mt-2 [&_h2]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold " +
+          "[&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:text-xs [&_h3]:font-semibold " +
+          "[&_ul]:my-1 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-4 " +
+          "[&_ol]:my-1 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-4 " +
+          "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 " +
+          "[&_strong]:font-semibold " +
+          "[&_blockquote]:border-primary/30 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:italic " +
+          "[&_code]:bg-background/70 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] " +
+          "[&_pre]:bg-background/70 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:p-2.5 [&_pre]:text-[11px] [&_pre]:leading-relaxed " +
+          "[&_pre_code]:bg-transparent [&_pre_code]:p-0 " +
+          "[&_hr]:border-border [&_hr]:my-2 " +
+          "[&_table]:my-2 [&_table]:w-full [&_table]:text-[11px] " +
+          "[&_th]:border-border [&_th]:border-b [&_th]:px-1.5 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold " +
+          "[&_td]:border-border [&_td]:border-b [&_td]:px-1.5 [&_td]:py-1"
+        }
+      >
+        {part.type === "text" ? (
+          <Markdown extensions={[streamingMarkdownExtension()]}>{part.content}</Markdown>
+        ) : null}
       </BubbleContent>
     </Bubble>
   );
