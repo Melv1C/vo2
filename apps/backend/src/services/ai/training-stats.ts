@@ -5,11 +5,11 @@ import { db } from "@/database";
 import { activityMetrics, dailyTrainingLoad } from "@/database/entities/activity-metrics";
 import { activitySyncState } from "@/database/entities/activity-sync-state";
 import { stravaActivities } from "@/database/entities/strava-activities";
+import { normalizeTrainingStatsRange } from "@/services/ai/training-stats-range";
 import { loadAthleteProfile } from "@/services/metrics/context";
 
 const MAX_ACTIVITY_ROWS = 100;
 const activityLocalDate = sql<string>`coalesce(date(${stravaActivities.startDateLocal}), date(${stravaActivities.startDate}))`;
-import { normalizeTrainingStatsRange } from "@/services/ai/training-stats-range";
 
 function toNumber(value: number | null | undefined): number | null {
   return value == null ? null : Number(value);
@@ -113,7 +113,8 @@ export async function getTrainingStats(
     summary: {
       activityCount: totalActivityCount,
       trainingLoad: Number(totalTrainingLoad.toFixed(2)),
-      averageDailyLoad: Number((totalTrainingLoad / Math.max(dailyRows.length, 1)).toFixed(2)),
+      averageDailyLoad:
+        dailyRows.length === 0 ? 0 : Number((totalTrainingLoad / dailyRows.length).toFixed(2)),
       ctl: toNumber(latestDailyRow?.ctl),
       atl: toNumber(latestDailyRow?.atl),
       tsb: toNumber(latestDailyRow?.tsb),
