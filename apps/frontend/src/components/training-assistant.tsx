@@ -1,7 +1,14 @@
 import { trainingStatsToolDefinition } from "@repo/ai";
-import { Avatar, AvatarFallback } from "@repo/ui/components/ui/avatar";
+import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
+import { Badge } from "@repo/ui/components/ui/badge";
 import { Bubble, BubbleContent } from "@repo/ui/components/ui/bubble";
 import { Button } from "@repo/ui/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@repo/ui/components/ui/collapsible";
 import {
   Empty,
   EmptyContent,
@@ -10,12 +17,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@repo/ui/components/ui/empty";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupTextarea,
-} from "@repo/ui/components/ui/input-group";
 import { Message, MessageAvatar, MessageContent } from "@repo/ui/components/ui/message";
 import {
   MessageScroller,
@@ -25,7 +26,7 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@repo/ui/components/ui/message-scroller";
-import { Spinner } from "@repo/ui/components/ui/spinner";
+import { Textarea } from "@repo/ui/components/ui/textarea";
 import { fetchServerSentEvents } from "@tanstack/ai-react";
 import {
   createChatHook,
@@ -38,18 +39,23 @@ import {
 import { streamingMarkdownExtension } from "@tanstack/markdown/extensions/streaming";
 import { Markdown } from "@tanstack/markdown/react";
 import {
+  ActivityIcon,
+  AlertCircleIcon,
+  ArrowUpIcon,
+  BrainCircuitIcon,
   BotIcon,
-  CheckIcon,
-  CircleStopIcon,
+  CheckCircle2Icon,
+  ChevronDownIcon,
   MessageCircleIcon,
-  RotateCcwIcon,
-  SendIcon,
   SparklesIcon,
   Trash2Icon,
   XIcon,
+  SquareIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { ENV } from "varlock/env";
+
+import { useSession } from "@/lib/auth-client";
 
 const chatOptions = {
   connection: fetchServerSentEvents(`${ENV.BACKEND_URL}/api/chat`, {
@@ -60,37 +66,61 @@ const chatOptions = {
 
 type ChatOptions = typeof chatOptions;
 
+const TrainingAssistantControls = createContext<{ close: () => void } | null>(null);
+
+function useTrainingAssistantControls() {
+  const controls = useContext(TrainingAssistantControls);
+  if (!controls) throw new Error("TrainingAssistant controls are unavailable");
+  return controls;
+}
+
+const streamingExtensions = [streamingMarkdownExtension()];
+
 function ChatLayout({ Messages, Interrupts, Queue, Input }: LayoutProps<ChatOptions>) {
   const chat = useChatContext();
+  const { close } = useTrainingAssistantControls();
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between border-b px-4 py-3">
+    <div className="bg-background flex h-full min-h-0 flex-col overflow-hidden">
+      <header className="bg-card flex shrink-0 items-center justify-between border-b px-4 py-4">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="bg-primary text-primary-foreground flex size-7 shrink-0 items-center justify-center rounded-md">
-            <SparklesIcon className="size-3.5" />
+          <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm">
+            <SparklesIcon className="size-5" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">Training assistant</p>
-            <p className="text-muted-foreground text-[11px]">Your numbers, explained</p>
+            <p className="truncate text-base font-semibold tracking-tight">Training assistant</p>
+            <p className="text-muted-foreground text-xs">Your numbers, explained</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Clear conversation"
-          onClick={() => chat.clear()}
-          disabled={chat.messages.length === 0 || chat.isLoading}
-        >
-          <Trash2Icon />
-        </Button>
-      </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Clear conversation"
+            onClick={() => chat.clear()}
+            disabled={chat.messages.length === 0 || chat.isLoading}
+          >
+            <Trash2Icon />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Close training assistant"
+            onClick={close}
+          >
+            <XIcon />
+          </Button>
+        </div>
+      </header>
 
-      <div className="min-h-0 flex-1 px-1">
+      <div className="min-h-0 flex-1">
         <MessageScrollerProvider autoScroll defaultScrollPosition="end">
-          <MessageScroller>
-            <MessageScrollerViewport aria-label="Training assistant messages" className="px-3">
-              <MessageScrollerContent aria-busy={chat.isLoading} className="gap-3 py-4">
+          <MessageScroller className="min-h-0">
+            <MessageScrollerViewport aria-label="Training assistant messages" className="px-4">
+              <MessageScrollerContent aria-busy={chat.isLoading} className="gap-5 py-5">
+                {chat.error ? (
+                  <ChatError error={chat.error} onRetry={() => void chat.reload()} />
+                ) : null}
                 {chat.messages.length === 0 ? <AssistantEmptyState /> : <Messages />}
                 <Interrupts />
                 <Queue />
@@ -106,20 +136,27 @@ function ChatLayout({ Messages, Interrupts, Queue, Input }: LayoutProps<ChatOpti
         </MessageScrollerProvider>
       </div>
 
-      {chat.error && (
-        <div className="border-destructive/30 bg-destructive/10 text-destructive mx-4 mb-2 flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-xs">
-          <span>Could not finish that response.</span>
-          <Button variant="destructive" size="xs" onClick={() => void chat.reload()}>
-            <RotateCcwIcon />
-            Retry
-          </Button>
-        </div>
-      )}
-
-      <div className="border-t p-3">
+      <div className="bg-background/95 shrink-0 border-t px-4 py-4 backdrop-blur">
         <Input />
       </div>
     </div>
+  );
+}
+
+function ChatError({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  return (
+    <MessageScrollerItem messageId="chat-error">
+      <Alert variant="destructive">
+        <AlertCircleIcon />
+        <AlertTitle>Response stopped</AlertTitle>
+        <AlertDescription className="flex items-center justify-between gap-2">
+          <span>{error.message}</span>
+          <Button variant="destructive" size="xs" onClick={onRetry}>
+            Retry
+          </Button>
+        </AlertDescription>
+      </Alert>
+    </MessageScrollerItem>
   );
 }
 
@@ -164,22 +201,40 @@ function AssistantEmptyState() {
 
 function ChatMessage({ message, Parts }: MessageProps<ChatOptions>) {
   const isUser = message.role === "user";
+  const { data: session } = useSession();
+  const userName = session?.user.name ?? "You";
+  const userInitial = userName.trim().slice(0, 1).toUpperCase() || "Y";
 
   return (
     <MessageScrollerItem messageId={message.id} scrollAnchor={isUser}>
-      <Message align={isUser ? "end" : "start"} className="gap-2">
-        <MessageAvatar className="size-6 min-w-6 self-start">
-          <Avatar className="size-6 rounded-md">
-            <AvatarFallback className="bg-muted text-muted-foreground rounded-md">
-              {isUser ? "You" : <BotIcon className="size-3.5" />}
-            </AvatarFallback>
+      <Message align={isUser ? "end" : "start"} className="gap-3">
+        <MessageAvatar className="size-8 min-w-8 self-start">
+          <Avatar size="sm" className="size-8">
+            {isUser ? (
+              <>
+                <AvatarImage src={session?.user.image ?? undefined} alt="" />
+                <AvatarFallback>{userInitial}</AvatarFallback>
+              </>
+            ) : (
+              <AvatarFallback className="bg-background text-muted-foreground ring-border ring-1">
+                <BotIcon className="size-4" />
+              </AvatarFallback>
+            )}
           </Avatar>
         </MessageAvatar>
-        <MessageContent className="gap-1">
-          <div className="text-muted-foreground px-1 text-[10px] font-medium">
-            {isUser ? "You" : "VO2 assistant"}
+        <MessageContent className="gap-2">
+          <div className="text-muted-foreground px-1 text-xs font-medium">
+            {isUser ? userName : "VO2 assistant"}
           </div>
-          <Parts />
+          {isUser ? (
+            <div className="bg-primary text-primary-foreground max-w-[90%] self-end rounded-2xl rounded-br-sm px-4 py-3 text-sm shadow-sm">
+              <p className="whitespace-pre-wrap">
+                {message.parts.map((part) => (part.type === "text" ? part.content : "")).join("")}
+              </p>
+            </div>
+          ) : (
+            <Parts />
+          )}
         </MessageContent>
       </Message>
     </MessageScrollerItem>
@@ -188,31 +243,33 @@ function ChatMessage({ message, Parts }: MessageProps<ChatOptions>) {
 
 function TextPart({ part }: PartProps<ChatOptions, "text">) {
   return (
-    <Bubble variant={part.type === "text" ? "muted" : "outline"}>
+    <Bubble variant="muted">
       <BubbleContent
         className={
-          "text-xs leading-relaxed " +
-          "[&_p+ p]:mt-2 [&_p]:my-0 " +
-          "[&_h1]:mt-2 [&_h1]:mb-1 [&_h1]:text-sm [&_h1]:font-semibold " +
-          "[&_h2]:mt-2 [&_h2]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold " +
-          "[&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:text-xs [&_h3]:font-semibold " +
-          "[&_ul]:my-1 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-4 " +
-          "[&_ol]:my-1 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-4 " +
+          "text-sm leading-relaxed " +
+          "[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 " +
+          "[&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-base [&_h1]:font-semibold " +
+          "[&_h2]:mt-3 [&_h2]:mb-1.5 [&_h2]:text-sm [&_h2]:font-semibold " +
+          "[&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold " +
+          "[&_ul]:my-2 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5 " +
+          "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 " +
           "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 " +
           "[&_strong]:font-semibold " +
           "[&_blockquote]:border-primary/30 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:italic " +
           "[&_code]:bg-background/70 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] " +
-          "[&_pre]:bg-background/70 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:p-2.5 [&_pre]:text-[11px] [&_pre]:leading-relaxed " +
+          "[&_pre]:bg-background/70 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:p-2.5 [&_pre]:text-xs [&_pre]:leading-relaxed " +
           "[&_pre_code]:bg-transparent [&_pre_code]:p-0 " +
-          "[&_hr]:border-border [&_hr]:my-2 " +
-          "[&_table]:my-2 [&_table]:w-full [&_table]:text-[11px] " +
-          "[&_th]:border-border [&_th]:border-b [&_th]:px-1.5 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold " +
-          "[&_td]:border-border [&_td]:border-b [&_td]:px-1.5 [&_td]:py-1"
+          "[&_hr]:border-border [&_hr]:my-3"
         }
       >
-        {part.type === "text" ? (
-          <Markdown extensions={[streamingMarkdownExtension()]}>{part.content}</Markdown>
-        ) : null}
+        <Markdown
+          allowHtml={false}
+          extensions={streamingExtensions}
+          frontmatter={false}
+          headingIds={false}
+        >
+          {part.content}
+        </Markdown>
       </BubbleContent>
     </Bubble>
   );
@@ -220,41 +277,135 @@ function TextPart({ part }: PartProps<ChatOptions, "text">) {
 
 function ThinkingPart({ part }: PartProps<ChatOptions, "thinking">) {
   return (
-    <div className="text-muted-foreground flex items-center gap-2 px-2 py-1 text-xs">
-      <Spinner className="size-3" />
-      <span>{part.type === "thinking" ? "Reviewing your training data" : "Working"}</span>
-    </div>
+    <Collapsible className="bg-muted/30 rounded-lg border border-dashed">
+      <CollapsibleTrigger className="group flex w-full items-center gap-2 px-3 py-2 text-left">
+        <span className="bg-background text-muted-foreground ring-border flex size-7 shrink-0 items-center justify-center rounded-md ring-1">
+          <BrainCircuitIcon className="size-3.5" />
+        </span>
+        <span className="min-w-0 flex-1 text-xs font-medium">Reasoning notes</span>
+        <span className="text-muted-foreground text-[11px]">Tap to expand</span>
+        <ChevronDownIcon className="text-muted-foreground size-4 shrink-0 transition-transform group-aria-expanded:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="text-muted-foreground border-t px-3 py-2 text-xs leading-relaxed">
+        <p className="whitespace-pre-wrap">{part.content}</p>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
-function TrainingStatsTool({ part }: ToolProps<ChatOptions, "get_training_stats">) {
-  const isComplete = part.state === "complete";
+type ToolStatus = "running" | "complete" | "error";
+
+function getToolStatus(
+  part: ToolProps<ChatOptions, "get_training_stats">["part"],
+  result: ToolProps<ChatOptions, "get_training_stats">["result"],
+): ToolStatus {
+  if (part.state === "error" || result?.state === "error") return "error";
+  if (part.state === "complete" || result?.state === "complete") return "complete";
+  return "running";
+}
+
+function ToolStatusIcon({ status }: { status: ToolStatus }) {
+  if (status === "error") return <AlertCircleIcon className="size-3.5" />;
+  if (status === "complete") return <CheckCircle2Icon className="size-3.5" />;
+  return <ActivityIcon className="size-3.5 animate-pulse" />;
+}
+
+function getToolOutput(
+  part: ToolProps<ChatOptions, "get_training_stats">["part"],
+  result: ToolProps<ChatOptions, "get_training_stats">["result"],
+): unknown {
+  if (part.state === "error") return part.output ?? "The stats lookup failed.";
+  if (result?.state === "error") return result.error ?? "The stats lookup failed.";
+  if (part.output !== undefined) return part.output;
+  if (result?.content !== undefined) return result.content;
+  return "No stats output yet.";
+}
+
+function TrainingStatsTool({ part, result }: ToolProps<ChatOptions, "get_training_stats">) {
+  const status = getToolStatus(part, result);
+  const statusLabel =
+    status === "error" ? "Needs attention" : status === "complete" ? "Complete" : "Running";
+  const output = getToolOutput(part, result);
+  const outputText =
+    typeof output === "string"
+      ? output
+      : (JSON.stringify(output, null, 2) ?? "No stats output yet.");
 
   return (
-    <div className="text-muted-foreground flex items-center gap-2 px-2 py-1 text-[11px]">
-      {isComplete ? (
-        <CheckIcon className="size-3 text-emerald-600" />
-      ) : (
-        <Spinner className="size-3" />
-      )}
-      <span>{isComplete ? "Training data loaded" : "Reading training data"}</span>
-    </div>
+    <Collapsible className="bg-muted/30 rounded-lg border border-dashed">
+      <CollapsibleTrigger className="group flex w-full items-center gap-2 px-3 py-2 text-left">
+        <span className="bg-background text-muted-foreground ring-border flex size-7 shrink-0 items-center justify-center rounded-md ring-1">
+          <ActivityIcon className="size-3.5" />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs font-medium">Training stats</span>
+        <Badge
+          className="h-5 shrink-0 gap-1 px-1.5 text-[10px]"
+          variant={status === "error" ? "destructive" : "outline"}
+        >
+          <ToolStatusIcon status={status} />
+          <span>{statusLabel}</span>
+        </Badge>
+        <ChevronDownIcon className="text-muted-foreground size-4 shrink-0 transition-transform group-aria-expanded:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="border-t px-3 py-2">
+        <pre className="bg-muted/50 text-muted-foreground max-h-48 overflow-auto rounded-md p-2.5 font-mono text-[10px] leading-relaxed break-words whitespace-pre-wrap">
+          {outputText}
+        </pre>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function ToolResultPart({ part }: PartProps<ChatOptions, "toolResult">) {
+  const isError = part.state === "error" || Boolean(part.error);
+  const content = isError
+    ? (part.error ?? "The stats lookup failed.")
+    : typeof part.content === "string"
+      ? part.content
+      : (JSON.stringify(part.content, null, 2) ?? "No stats output returned.");
+
+  return (
+    <Collapsible className="bg-background rounded-lg border">
+      <CollapsibleTrigger className="group flex w-full items-center gap-2 px-3 py-2 text-left">
+        <span
+          className={`flex size-7 shrink-0 items-center justify-center rounded-md ${isError ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}
+        >
+          {isError ? (
+            <AlertCircleIcon className="size-3.5" />
+          ) : (
+            <CheckCircle2Icon className="size-3.5" />
+          )}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs font-medium">Stats evidence</span>
+        <Badge
+          className="h-5 shrink-0 px-1.5 text-[10px]"
+          variant={isError ? "destructive" : "outline"}
+        >
+          {isError ? "Failed" : "Evidence"}
+        </Badge>
+        <ChevronDownIcon className="text-muted-foreground size-4 shrink-0 transition-transform group-aria-expanded:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="border-t p-3">
+        <pre className="bg-muted/50 text-muted-foreground max-h-48 overflow-auto rounded-md p-2.5 font-mono text-[10px] leading-relaxed break-words whitespace-pre-wrap">
+          {content}
+        </pre>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
 function FallbackPart({ part }: PartProps<ChatOptions>) {
-  if (part.type === "tool-result") return null;
-  return null;
+  return <p className="text-muted-foreground text-xs">Unsupported content: {part.type}</p>;
 }
 
 function ChatInput(_props: InputProps<ChatOptions>) {
   const chat = useChatContext();
-  const [value, setValue] = useState("");
+  const [draft, setDraft] = useState("");
 
   function submit() {
-    const text = value.trim();
+    const text = draft.trim();
     if (!text || chat.isLoading) return;
-    setValue("");
+    setDraft("");
     void chat.sendMessage(text);
   }
 
@@ -264,48 +415,42 @@ function ChatInput(_props: InputProps<ChatOptions>) {
         event.preventDefault();
         submit();
       }}
-      className="flex flex-col gap-2"
+      className="w-full"
     >
-      <InputGroup className="min-h-10">
-        <InputGroupTextarea
+      <div className="focus-within:border-ring focus-within:ring-ring/20 bg-muted/20 relative rounded-xl border shadow-sm transition-colors focus-within:ring-2">
+        <Textarea
           name="message"
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
-              submit();
+              event.currentTarget.form?.requestSubmit();
             }
           }}
           placeholder="Ask about your stats..."
           aria-label="Ask about your training stats"
           maxLength={2_000}
-          rows={1}
+          className="min-h-20 resize-none border-0 bg-transparent px-3 py-3 pr-14 shadow-none focus-visible:ring-0"
           disabled={chat.isLoading}
         />
-        <InputGroupAddon align="inline-end">
+        <Button
+          aria-label={chat.isLoading ? "Stop response" : "Send message"}
+          className="absolute right-2 bottom-2"
+          disabled={!chat.isLoading && !draft.trim()}
+          onClick={chat.isLoading ? () => chat.stop() : undefined}
+          size="icon-sm"
+          type={chat.isLoading ? "button" : "submit"}
+          variant={chat.isLoading ? "destructive" : "default"}
+        >
           {chat.isLoading ? (
-            <InputGroupButton
-              type="button"
-              size="icon-sm"
-              aria-label="Stop response"
-              onClick={() => chat.stop()}
-            >
-              <CircleStopIcon />
-            </InputGroupButton>
+            <SquareIcon className="size-3.5" />
           ) : (
-            <InputGroupButton
-              type="submit"
-              size="icon-sm"
-              aria-label="Send message"
-              disabled={!value.trim()}
-            >
-              <SendIcon />
-            </InputGroupButton>
+            <ArrowUpIcon className="size-4" />
           )}
-        </InputGroupAddon>
-      </InputGroup>
-      <p className="text-muted-foreground px-1 text-[10px]">Shift+Enter for a new line</p>
+        </Button>
+      </div>
+      <p className="text-muted-foreground px-1 pt-2 text-[10px]">Shift+Enter for a new line</p>
     </form>
   );
 }
@@ -320,6 +465,7 @@ const { useAppChat, useChatContext } = createChatHook({
   partsComponents: {
     text: TextPart,
     thinking: ThinkingPart,
+    toolResult: ToolResultPart,
     fallback: FallbackPart,
   },
   toolsComponents: {
@@ -336,33 +482,26 @@ export function TrainingAssistant() {
       {isOpen && (
         <section
           aria-label="Training assistant"
-          className="bg-card text-card-foreground ring-foreground/10 h-[min(650px,calc(100vh-6rem))] w-[min(410px,calc(100vw-2rem))] overflow-hidden rounded-xl border shadow-2xl ring-1"
+          className="bg-card text-card-foreground ring-foreground/10 h-[min(700px,calc(100vh-2rem))] w-[min(440px,calc(100vw-2rem))] overflow-hidden rounded-2xl border-2 shadow-2xl ring-1"
         >
-          <div className="relative h-full">
+          <TrainingAssistantControls.Provider value={{ close: () => setIsOpen(false) }}>
             <chat.AppChat />
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="absolute top-3 right-10 z-10"
-              aria-label="Close training assistant"
-              onClick={() => setIsOpen(false)}
-            >
-              <XIcon />
-            </Button>
-          </div>
+          </TrainingAssistantControls.Provider>
         </section>
       )}
 
-      <Button
-        size="lg"
-        className="ring-background/80 size-12 rounded-full p-0 shadow-lg ring-4"
-        aria-label={isOpen ? "Close training assistant" : "Open training assistant"}
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((open) => !open)}
-      >
-        {isOpen ? <XIcon /> : <MessageCircleIcon />}
-        <span className="sr-only">{isOpen ? "Close assistant" : "Ask about your training"}</span>
-      </Button>
+      {!isOpen && (
+        <Button
+          size="lg"
+          className="ring-background/80 size-12 rounded-full p-0 shadow-lg ring-4"
+          aria-label="Open training assistant"
+          aria-expanded={false}
+          onClick={() => setIsOpen(true)}
+        >
+          <MessageCircleIcon />
+          <span className="sr-only">Ask about your training</span>
+        </Button>
+      )}
     </div>
   );
 }
