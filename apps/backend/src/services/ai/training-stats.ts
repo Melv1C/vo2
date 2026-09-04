@@ -5,8 +5,9 @@ import { db } from "@/database";
 import { activityMetrics, dailyTrainingLoad } from "@/database/entities/activity-metrics";
 import { activitySyncState } from "@/database/entities/activity-sync-state";
 import { stravaActivities } from "@/database/entities/strava-activities";
-import { normalizeTrainingStatsRange } from "@/services/ai/training-stats-range";
+import { countCalendarDays, normalizeTrainingStatsRange } from "@/services/ai/training-stats-range";
 import { loadAthleteProfile } from "@/services/metrics/context";
+import { extendDailyLoadSeries } from "@/services/metrics/training-load";
 
 const MAX_ACTIVITY_ROWS = 100;
 const activityLocalDate = sql<string>`coalesce(date(${stravaActivities.startDateLocal}), date(${stravaActivities.startDate}))`;
@@ -38,6 +39,7 @@ export async function getTrainingStats(
     )
     .orderBy(dailyTrainingLoad.date);
 
+  const dailySeries = extendDailyLoadSeries(dailyRows, range.to);
   const activityFilters = [eq(stravaActivities.userId, userId)];
   if (input.activityId) {
     activityFilters.push(eq(activityMetrics.activityId, input.activityId));
@@ -90,7 +92,7 @@ export async function getTrainingStats(
     (total, row) => total + Number(row.trainingLoad),
     0,
   );
-  const latestDailyRow = dailyRows.at(-1);
+  const latestDailyRow = dailySeries.at(-1);
   const notes: string[] = [];
 
   if (input.sportFamily) {
@@ -114,7 +116,9 @@ export async function getTrainingStats(
       activityCount: totalActivityCount,
       trainingLoad: Number(totalTrainingLoad.toFixed(2)),
       averageDailyLoad:
-        dailyRows.length === 0 ? 0 : Number((totalTrainingLoad / dailyRows.length).toFixed(2)),
+        dailySeries.length === 0
+          ? 0
+          : Number((totalTrainingLoad / countCalendarDays(range.from, range.to)).toFixed(2)),
       ctl: toNumber(latestDailyRow?.ctl),
       atl: toNumber(latestDailyRow?.atl),
       tsb: toNumber(latestDailyRow?.tsb),
@@ -125,7 +129,7 @@ export async function getTrainingStats(
         movingTimeMinutes: Number((Number(row.movingTimeSeconds) / 60).toFixed(1)),
       })),
     },
-    daily: dailyRows.map((row) => ({
+    daily: dailySeries.map((row) => ({
       date: row.date,
       trainingLoad: Number(row.trainingLoad),
       ctl: Number(row.ctl),

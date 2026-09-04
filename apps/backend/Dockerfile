@@ -43,7 +43,7 @@ WORKDIR /app
 
 # Copy application sources (pruned)
 COPY --from=builder --chown=user:group /app/apps /app/apps
-# COPY --from=builder --chown=user:group /app/packages /app/packages
+COPY --from=builder --chown=user:group /app/packages /app/packages
 COPY --from=builder --chown=user:group /app/package.json /app/turbo.json /app/
 COPY --from=builder --chown=user:group /app/.env.shared /app/.env.shared
 
