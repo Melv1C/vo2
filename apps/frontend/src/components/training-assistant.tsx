@@ -1,7 +1,6 @@
 import { trainingStatsToolDefinition } from "@repo/ai";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
-import { Badge } from "@repo/ui/components/ui/badge";
 import { Bubble, BubbleContent } from "@repo/ui/components/ui/bubble";
 import { Button } from "@repo/ui/components/ui/button";
 import {
@@ -202,8 +201,7 @@ function AssistantEmptyState() {
 function ChatMessage({ message, Parts }: MessageProps<ChatOptions>) {
   const isUser = message.role === "user";
   const { data: session } = useSession();
-  const userName = session?.user.name ?? "You";
-  const userInitial = userName.trim().slice(0, 1).toUpperCase() || "Y";
+  const userInitial = session?.user.name?.trim().slice(0, 1).toUpperCase() || "Y";
 
   return (
     <MessageScrollerItem messageId={message.id} scrollAnchor={isUser}>
@@ -223,9 +221,6 @@ function ChatMessage({ message, Parts }: MessageProps<ChatOptions>) {
           </Avatar>
         </MessageAvatar>
         <MessageContent className="gap-2">
-          <div className="text-muted-foreground px-1 text-xs font-medium">
-            {isUser ? userName : "VO2 assistant"}
-          </div>
           {isUser ? (
             <div className="bg-primary text-primary-foreground max-w-[90%] self-end rounded-2xl rounded-br-sm px-4 py-3 text-sm shadow-sm">
               <p className="whitespace-pre-wrap">
@@ -277,17 +272,14 @@ function TextPart({ part }: PartProps<ChatOptions, "text">) {
 
 function ThinkingPart({ part }: PartProps<ChatOptions, "thinking">) {
   return (
-    <Collapsible className="bg-muted/30 rounded-lg border border-dashed">
-      <CollapsibleTrigger className="group flex w-full items-center gap-2 px-3 py-2 text-left">
-        <span className="bg-background text-muted-foreground ring-border flex size-7 shrink-0 items-center justify-center rounded-md ring-1">
-          <BrainCircuitIcon className="size-3.5" />
-        </span>
-        <span className="min-w-0 flex-1 text-xs font-medium">Reasoning notes</span>
-        <span className="text-muted-foreground text-[11px]">Tap to expand</span>
-        <ChevronDownIcon className="text-muted-foreground size-4 shrink-0 transition-transform group-aria-expanded:rotate-180" />
+    <Collapsible className="group">
+      <CollapsibleTrigger className="text-muted-foreground hover:text-foreground flex w-full items-center gap-2 py-1 text-left text-xs transition-colors">
+        <BrainCircuitIcon className="size-3.5 shrink-0" />
+        <span className="flex-1 font-medium">Reasoning notes</span>
+        <ChevronDownIcon className="size-3.5 shrink-0 transition-transform group-aria-expanded:rotate-180" />
       </CollapsibleTrigger>
-      <CollapsibleContent className="text-muted-foreground border-t px-3 py-2 text-xs leading-relaxed">
-        <p className="whitespace-pre-wrap">{part.content}</p>
+      <CollapsibleContent className="text-muted-foreground ml-1.5 border-l pl-5 text-xs leading-relaxed">
+        <p className="py-1 whitespace-pre-wrap">{part.content}</p>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -332,23 +324,15 @@ function TrainingStatsTool({ part, result }: ToolProps<ChatOptions, "get_trainin
       : (JSON.stringify(output, null, 2) ?? "No stats output yet.");
 
   return (
-    <Collapsible className="bg-muted/30 rounded-lg border border-dashed">
-      <CollapsibleTrigger className="group flex w-full items-center gap-2 px-3 py-2 text-left">
-        <span className="bg-background text-muted-foreground ring-border flex size-7 shrink-0 items-center justify-center rounded-md ring-1">
-          <ActivityIcon className="size-3.5" />
-        </span>
-        <span className="min-w-0 flex-1 truncate text-xs font-medium">Training stats</span>
-        <Badge
-          className="h-5 shrink-0 gap-1 px-1.5 text-[10px]"
-          variant={status === "error" ? "destructive" : "outline"}
-        >
-          <ToolStatusIcon status={status} />
-          <span>{statusLabel}</span>
-        </Badge>
-        <ChevronDownIcon className="text-muted-foreground size-4 shrink-0 transition-transform group-aria-expanded:rotate-180" />
+    <Collapsible className="group">
+      <CollapsibleTrigger className="text-muted-foreground hover:text-foreground flex w-full items-center gap-2 py-1 text-left text-xs transition-colors">
+        <ToolStatusIcon status={status} />
+        <span className="flex-1 font-medium">Training stats</span>
+        <span className="text-[11px]">{statusLabel}</span>
+        <ChevronDownIcon className="size-3.5 shrink-0 transition-transform group-aria-expanded:rotate-180" />
       </CollapsibleTrigger>
-      <CollapsibleContent className="border-t px-3 py-2">
-        <pre className="bg-muted/50 text-muted-foreground max-h-48 overflow-auto rounded-md p-2.5 font-mono text-[10px] leading-relaxed break-words whitespace-pre-wrap">
+      <CollapsibleContent className="text-muted-foreground ml-1.5 border-l pl-5">
+        <pre className="max-h-40 overflow-auto py-1 font-mono text-[10px] leading-relaxed break-words whitespace-pre-wrap">
           {outputText}
         </pre>
       </CollapsibleContent>
@@ -365,28 +349,19 @@ function ToolResultPart({ part }: PartProps<ChatOptions, "toolResult">) {
       : (JSON.stringify(part.content, null, 2) ?? "No stats output returned.");
 
   return (
-    <Collapsible className="bg-background rounded-lg border">
-      <CollapsibleTrigger className="group flex w-full items-center gap-2 px-3 py-2 text-left">
-        <span
-          className={`flex size-7 shrink-0 items-center justify-center rounded-md ${isError ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}
-        >
-          {isError ? (
-            <AlertCircleIcon className="size-3.5" />
-          ) : (
-            <CheckCircle2Icon className="size-3.5" />
-          )}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-xs font-medium">Stats evidence</span>
-        <Badge
-          className="h-5 shrink-0 px-1.5 text-[10px]"
-          variant={isError ? "destructive" : "outline"}
-        >
-          {isError ? "Failed" : "Evidence"}
-        </Badge>
-        <ChevronDownIcon className="text-muted-foreground size-4 shrink-0 transition-transform group-aria-expanded:rotate-180" />
+    <Collapsible className="group">
+      <CollapsibleTrigger className="text-muted-foreground hover:text-foreground flex w-full items-center gap-2 py-1 text-left text-xs transition-colors">
+        {isError ? (
+          <AlertCircleIcon className="text-destructive size-3.5 shrink-0" />
+        ) : (
+          <CheckCircle2Icon className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+        )}
+        <span className="flex-1 font-medium">Stats evidence</span>
+        <span className="text-[11px]">{isError ? "Failed" : "Loaded"}</span>
+        <ChevronDownIcon className="size-3.5 shrink-0 transition-transform group-aria-expanded:rotate-180" />
       </CollapsibleTrigger>
-      <CollapsibleContent className="border-t p-3">
-        <pre className="bg-muted/50 text-muted-foreground max-h-48 overflow-auto rounded-md p-2.5 font-mono text-[10px] leading-relaxed break-words whitespace-pre-wrap">
+      <CollapsibleContent className="text-muted-foreground ml-1.5 border-l pl-5">
+        <pre className="max-h-40 overflow-auto py-1 font-mono text-[10px] leading-relaxed break-words whitespace-pre-wrap">
           {content}
         </pre>
       </CollapsibleContent>
