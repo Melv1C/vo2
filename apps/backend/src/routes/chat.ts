@@ -22,7 +22,8 @@ State the date range used. Explain CTL as chronic training load, ATL as acute tr
 Keep answers concise and practical. You may describe patterns, but do not diagnose illness or prescribe medical treatment. The assistant is read-only and must not claim to have changed training data.`;
 
 const model = ENV.OPENROUTER_MODEL as Parameters<typeof createOpenRouterText>[0];
-const adapter = createOpenRouterText(model, ENV.OPENROUTER_API_KEY);
+const openRouterApiKey = ENV.OPENROUTER_API_KEY?.trim();
+const adapter = openRouterApiKey ? createOpenRouterText(model, openRouterApiKey) : null;
 
 export const chatRoutes = new Hono().use(isAuthenticated).post(
   "/",
@@ -43,6 +44,9 @@ export const chatRoutes = new Hono().use(isAuthenticated).post(
     const limitError = validateChatMessageLimits(params.messages);
     if (limitError) {
       return c.json({ message: limitError }, 400);
+    }
+    if (!adapter) {
+      return c.json({ message: "AI chat is not configured" }, 503);
     }
 
     const stream = chat({
