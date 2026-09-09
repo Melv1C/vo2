@@ -94,3 +94,47 @@ export function buildDailyLoadSeries(dailyLoads: DailyLoadInput[]): DailyLoadOut
 
   return output;
 }
+
+/** Extends a stored daily series with zero-load rest days through the requested date. */
+export function extendDailyLoadSeries(
+  series: DailyLoadOutput[],
+  endDate: string,
+): DailyLoadOutput[] {
+  if (series.length === 0) {
+    return [];
+  }
+
+  const lastRow = series.at(-1)!;
+  if (lastRow.date >= endDate) {
+    return series;
+  }
+
+  const ctlFactor = smoothingFactor(CTL_DAYS);
+  const atlFactor = smoothingFactor(ATL_DAYS);
+  const output = [...series];
+  let previousDate = lastRow.date;
+  let previousCtl = lastRow.ctl;
+  let previousAtl = lastRow.atl;
+
+  while (previousDate < endDate) {
+    const date = addDays(previousDate, 1);
+    const ctl = previousCtl + (0 - previousCtl) * ctlFactor;
+    const atl = previousAtl + (0 - previousAtl) * atlFactor;
+
+    output.push({
+      date,
+      trainingLoad: 0,
+      activityCount: 0,
+      ctl,
+      atl,
+      tsb: previousCtl - previousAtl,
+      isRamping: lastRow.isRamping,
+    });
+
+    previousDate = date;
+    previousCtl = ctl;
+    previousAtl = atl;
+  }
+
+  return output;
+}

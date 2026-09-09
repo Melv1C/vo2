@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildDailyLoadSeries } from "./training-load";
+import { buildDailyLoadSeries, extendDailyLoadSeries } from "./training-load";
 
 describe("buildDailyLoadSeries", () => {
   test("fills gaps between active days with zero-load rest days", () => {
@@ -39,5 +39,22 @@ describe("buildDailyLoadSeries", () => {
 
     expect(series[0]?.tsb).toBe(0);
     expect(series[1]?.tsb).toBeCloseTo(series[0]!.ctl - series[0]!.atl, 5);
+  });
+
+  test("extends the series through a requested end date with rest days", () => {
+    const series = buildDailyLoadSeries([
+      { date: "2025-01-01", trainingLoad: 100, activityCount: 1 },
+    ]);
+
+    const extended = extendDailyLoadSeries(series, "2025-01-03");
+
+    expect(extended).toHaveLength(3);
+    expect(extended.at(-1)).toMatchObject({
+      date: "2025-01-03",
+      trainingLoad: 0,
+      activityCount: 0,
+    });
+    expect(extended[2]?.ctl).toBeLessThan(extended[1]!.ctl);
+    expect(extended[2]?.atl).toBeLessThan(extended[1]!.atl);
   });
 });

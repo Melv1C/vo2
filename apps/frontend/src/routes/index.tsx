@@ -7,7 +7,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { DailyMetricsCharts } from "@/components/daily-metrics-charts";
+import { TrainingAssistant } from "@/components/training-assistant";
 import { activitiesQueryOptions } from "@/lib/activities-query";
+import { apiClient } from "@/lib/api-client";
 import { authClient, signIn, signOut, useSession } from "@/lib/auth-client";
 import {
   dailyMetricsRangeFromPreset,
@@ -46,6 +48,15 @@ function Home() {
   });
   const { data: dailyMetrics, isLoading: dailyMetricsLoading } = useQuery({
     ...dailyMetricsQueryOptions(metricsRange),
+    enabled: !!session,
+  });
+  const { data: health } = useQuery({
+    queryKey: ["health"],
+    queryFn: async ({ signal }) => {
+      const response = await apiClient.health.$get(undefined, { init: { signal } });
+      if (!response.ok) return null;
+      return response.json();
+    },
     enabled: !!session,
   });
   const recompute = useMutation({
@@ -138,12 +149,15 @@ function Home() {
         </Card>
 
         {session && (
-          <DailyMetricsCharts
-            series={dailyMetrics?.series}
-            isLoading={dailyMetricsLoading}
-            rangePreset={rangePreset}
-            onRangePresetChange={setRangePreset}
-          />
+          <>
+            <DailyMetricsCharts
+              series={dailyMetrics?.series}
+              isLoading={dailyMetricsLoading}
+              rangePreset={rangePreset}
+              onRangePresetChange={setRangePreset}
+            />
+            {health?.aiChat ? <TrainingAssistant /> : null}
+          </>
         )}
       </div>
     </TooltipProvider>

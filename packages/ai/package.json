@@ -1,0 +1,15 @@
+{
+  "name": "@repo/ai",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@tanstack/ai": "^0.53.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*"
+  }
+}

@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI stats chat implementation plan</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #000;
+        --panel: #111;
+        --panel-strong: #181818;
+        --line: #333;
+        --muted: #aaa;
+        --text: #fff;
+        --accent: #9f9f9f;
+        --good: #b7e4c7;
+        --warn: #f2d28b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        background: var(--bg);
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          15px/1.55 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        width: min(100% - 32px, 980px);
+        margin: 0 auto;
+        padding: 40px 0 64px;
+      }
+      h1,
+      h2,
+      h3 {
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: clamp(28px, 5vw, 42px);
+      }
+      h2 {
+        margin: 36px 0 14px;
+        font-size: 22px;
+      }
+      h3 {
+        margin: 24px 0 8px;
+        font-size: 17px;
+      }
+      p {
+        max-width: 78ch;
+        margin: 0 0 14px;
+      }
+      a {
+        color: #fff;
+        text-underline-offset: 3px;
+      }
+      code {
+        color: #f4f4f4;
+        font:
+          0.92em ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      .lede {
+        color: var(--muted);
+        font-size: 17px;
+        max-width: 72ch;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 22px 0 30px;
+      }
+      .tag {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        padding: 5px 10px;
+        font-size: 12px;
+      }
+      .tag.good {
+        border-color: #42634d;
+        color: var(--good);
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px 20px;
+        margin: 14px 0;
+      }
+      .panel p:last-child,
+      .panel ul:last-child,
+      .panel ol:last-child {
+        margin-bottom: 0;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .grid .panel {
+        margin: 0;
+      }
+      ul,
+      ol {
+        margin: 8px 0 14px;
+        padding-left: 22px;
+      }
+      li {
+        margin: 6px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0 18px;
+      }
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 10px 8px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .step {
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        gap: 12px;
+        align-items: start;
+      }
+      .number {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--accent);
+        border-radius: 50%;
+        color: #fff;
+        font-weight: 700;
+      }
+      .decision {
+        border-left: 3px solid var(--warn);
+      }
+      .small {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .flow {
+        background: #080808;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      .flow span {
+        color: #ddd;
+      }
+      .flow b {
+        color: #fff;
+      }
+      @media (max-width: 680px) {
+        main {
+          width: min(100% - 22px, 980px);
+          padding-top: 26px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .panel {
+          padding: 15px;
+        }
+        th,
+        td {
+          padding: 8px 5px;
+        }
+        body {
+          font-size: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>AI stats chat implementation plan</h1>
+      <p class="lede">
+        A draft for adding an authenticated, streaming assistant to the endurance dashboard. The
+        assistant will answer questions from the athlete's own stored metrics, with the backend
+        owning data access and the model credentials.
+      </p>
+      <div class="meta">
+        <span class="tag good">Implementation complete</span>
+        <span class="tag">Plan reviewed</span>
+        <span class="tag">Frontend, backend, and shared package updated</span>
+      </div>
+
+      <h2>What I found</h2>
+      <div class="grid">
+        <section class="panel">
+          <h3>Application shape</h3>
+          <ul>
+            <li>The frontend is React 19 with Vite, TanStack Router, and TanStack Query.</li>
+            <li>
+              The backend is Hono with a typed RPC client and an authenticated route middleware.
+            </li>
+            <li>
+              The dashboard already loads daily CTL, ATL, TSB, training load, and activity counts.
+            </li>
+            <li>
+              The database also stores Strava activity summaries, computed activity metrics, athlete
+              anchors, zones, and data-quality reports.
+            </li>
+          </ul>
+        </section>
+        <section class="panel">
+          <h3>UI pieces already present</h3>
+          <p>
+            The shared UI package already has the current shadcn pieces needed for this chat:
+            <code>Message</code>, <code>Bubble</code>, <code>MessageScroller</code>,
+            <code>Attachment</code>, <code>InputGroup</code>, <code>Textarea</code>,
+            <code>Empty</code>, <code>Spinner</code>, <code>Button</code>, and <code>Card</code>.
+          </p>
+          <p>
+            We should use those existing components. We should not regenerate or duplicate them
+            unless implementation exposes a real version mismatch.
+          </p>
+        </section>
+      </div>
+
+      <h2>Proposed first release</h2>
+      <div class="panel">
+        <p>
+          Add an "Ask about your training" chat card to the authenticated dashboard below the
+          existing metric charts. It will work on desktop and mobile, stream assistant text into the
+          transcript, and retain the conversation in memory for the current page session.
+        </p>
+        <ul>
+          <li>
+            Users can ask about trends, load, fatigue, freshness, recent activities, sport mix, and
+            metric quality.
+          </li>
+          <li>
+            The assistant can request bounded, read-only training summaries from the backend instead
+            of receiving the whole database or raw stream arrays.
+          </li>
+          <li>
+            Answers will state the date range and missing-data caveats when those affect the result.
+          </li>
+          <li>
+            The first release will not change training data, trigger Strava syncs, upload files, or
+            give medical diagnoses.
+          </li>
+        </ul>
+      </div>
+
+      <h2>Architecture</h2>
+      <div class="flow">
+        <b>Dashboard chat UI</b>
+        <span>→ shared tool contract → SSE over existing authenticated backend URL →</span>
+        <b>Hono chat route</b> <span>→ backend tool implementation →</span> <b>Postgres metrics</b>
+      </div>
+
+      <section class="panel">
+        <h3>Shared tool contract</h3>
+        <p>
+          Create a small <code>@repo/ai</code> package for the definitions that both applications
+          need. This package is the seam between the frontend's typed chat UI and the backend's
+          executable tool.
+        </p>
+        <ul>
+          <li>
+            Export the tool name, description, input schema, output schema, and inferred
+            input/output types.
+          </li>
+          <li>
+            Keep the package isomorphic. It may depend on <code>@tanstack/ai</code> and
+            <code>zod</code>, but it must not import React, the UI package, Hono, Drizzle,
+            environment variables, or provider SDKs.
+          </li>
+          <li>
+            On the backend, call <code>trainingStatsToolDefinition.server(...)</code> and put the
+            database queries and authenticated user scoping in that implementation.
+          </li>
+          <li>
+            On the frontend, import the plain definition for <code>chatOptions.tools</code> and
+            typed tool-part rendering. The browser receives no database implementation or provider
+            secret.
+          </li>
+          <li>
+            If the tool becomes a group of tools, keep their definitions in this package and keep
+            each executable implementation in the backend package.
+          </li>
+        </ul>
+        <p>
+          This gives both callers one small interface while keeping the deeper database
+          implementation local to the backend. It also lets tests validate the same schemas that the
+          model and UI use.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h3>Frontend chat composition</h3>
+        <ol>
+          <li>
+            Add <code>@tanstack/ai-react</code> and configure the current
+            <code>@tanstack/ai-react/ui</code> API with <code>createChatHook</code>. The new API is
+            typed and expects the app to provide the visible components.
+          </li>
+          <li>
+            Import the shared tool definition from <code>@repo/ai</code> into the chat options.
+            Register a tool-part component or a fallback so tool calls never appear as raw JSON.
+          </li>
+          <li>
+            Define one module-scope chat configuration using
+            <code>fetchServerSentEvents</code> against the backend chat endpoint. Keep browser
+            credentials enabled so the existing Better Auth session cookie is sent.
+          </li>
+          <li>
+            Register the visible pieces required by the UI factory: a dashboard layout, message row,
+            text part, fallback part, and input.
+          </li>
+          <li>
+            Build the layout from the existing shadcn pieces. Use <code>Card</code> for the
+            assistant panel, <code>MessageScrollerProvider</code> and
+            <code>MessageScroller</code> for streaming scroll behavior, <code>Message</code> and
+            <code>Bubble</code> for rows, and <code>InputGroup</code> with
+            <code>InputGroupTextarea</code> for the composer.
+          </li>
+          <li>
+            Use <code>Empty</code> for the first-use state with a few concrete prompt suggestions,
+            and <code>Spinner</code> plus a stop control while a response streams.
+          </li>
+          <li>
+            Anchor user turns in the message scroller, mark the content busy while streaming, and
+            preserve the reader's position when they scroll up.
+          </li>
+          <li>
+            Render assistant text as escaped plain text in the first release. Add markdown only if
+            the answer format needs it after the initial UI is working.
+          </li>
+        </ol>
+      </section>
+
+      <section class="panel">
+        <h3>Backend chat route</h3>
+        <ol>
+          <li>
+            Add a protected <code>POST /api/chat</code> route to the existing Hono route tree.
+          </li>
+          <li>
+            Parse the TanStack AI request payload and return a 400 response for malformed messages.
+            Return 401 through the existing authentication middleware.
+          </li>
+          <li>
+            Call <code>chat()</code> and return <code>toServerSentEventsResponse()</code>. SSE
+            matches the documented default connection adapter and works with the existing
+            browser-to-backend setup.
+          </li>
+          <li>
+            Import the shared definition from <code>@repo/ai</code>, bind its
+            <code>.server()</code> implementation in the backend, and pass only that executable tool
+            to <code>chat()</code>.
+          </li>
+          <li>
+            Keep the model adapter and API key in the backend package. Add provider settings to the
+            backend varlock schema, not the frontend schema.
+          </li>
+          <li>
+            Set a bounded agent loop and request limits. A stats assistant should not be allowed to
+            loop indefinitely or accept unbounded date ranges.
+          </li>
+        </ol>
+      </section>
+
+      <section class="panel">
+        <h3>Stats access for the model</h3>
+        <p>
+          Use a server-side, read-only tool rather than placing a large snapshot in the prompt on
+          every turn. Its input and output schemas live in <code>@repo/ai</code>. The backend
+          implementation receives only validated filters such as date range, sport family, and an
+          optional activity identifier. The authenticated user ID comes from the request context and
+          is never accepted from the model or browser.
+        </p>
+        <p>The initial tool can return a compact summary containing:</p>
+        <ul>
+          <li>daily training load, CTL, ATL, TSB, activity count, and derived period summaries;</li>
+          <li>
+            activity-level metrics such as sport family, duration, load, HR, pace or power values,
+            and data-quality flags;
+          </li>
+          <li>
+            athlete anchors and zones needed to explain the calculations, with their source marked
+            as manual or estimated;
+          </li>
+          <li>
+            coverage and sync state so the assistant can say when streams or metrics are incomplete.
+          </li>
+        </ul>
+        <p>
+          Do not return raw GPS coordinates, full high-frequency stream arrays, Strava tokens, email
+          addresses, database IDs, or another user's data. Keep aggregation and unit conversion in
+          TypeScript so the model explains numbers that the backend already computed.
+        </p>
+      </section>
+
+      <h2>Conversation rules</h2>
+      <div class="panel">
+        <ul>
+          <li>
+            Answer from the supplied training data. If the data does not support a conclusion, say
+            so.
+          </li>
+          <li>
+            Distinguish measured values from estimates and explain the relevant metric in plain
+            language.
+          </li>
+          <li>Include the period used for comparisons, such as "the last 28 complete days".</li>
+          <li>Never invent activities, trends, causes, or exact values.</li>
+          <li>
+            Use a short health and training-safety boundary for questions that cross into diagnosis
+            or treatment.
+          </li>
+          <li>
+            Keep the first release read-only. No tool may edit profile values, zones, activities, or
+            sync state.
+          </li>
+        </ul>
+      </div>
+
+      <h2>Files and packages likely to change</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Area</th>
+            <th>Planned change</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Shared AI package</td>
+            <td>
+              Add a new <code>@repo/ai</code> package containing the tool definitions, Zod schemas,
+              and inferred input/output types. Keep it free of React, database, Hono, and provider
+              code.
+            </td>
+          </tr>
+          <tr>
+            <td>Frontend package</td>
+            <td>
+              Add TanStack AI React dependencies and a typed chat configuration plus the dashboard
+              assistant component. Import the shared tool definitions for typed tool rendering.
+            </td>
+          </tr>
+          <tr>
+            <td>Backend package</td>
+            <td>
+              Add TanStack AI core and the selected provider adapter, provider environment
+              variables, the chat route, and the executable server implementation of the shared
+              stats tool.
+            </td>
+          </tr>
+          <tr>
+            <td>Shared UI package</td>
+            <td>
+              Reuse the existing chat primitives. Add or adjust a component only if its current API
+              cannot support the required composition.
+            </td>
+          </tr>
+          <tr>
+            <td>Tests</td>
+            <td>
+              Cover user scoping, date bounds, empty and partial data, tool output shape, malformed
+              requests, and chat error states.
+            </td>
+          </tr>
+          <tr>
+            <td>Documentation</td>
+            <td>
+              Document required provider variables, local setup, the supported question scope, and
+              the fact that chat history is session-only in the first release.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Validation plan</h2>
+      <div class="panel">
+        <div class="step">
+          <span class="number">1</span>
+          <div>Run formatting, lint, type checking, and the existing backend tests.</div>
+        </div>
+        <div class="step">
+          <span class="number">2</span>
+          <div>
+            Exercise the route with an authenticated user, an unauthenticated user, invalid
+            payloads, empty metrics, and a partial stream dataset.
+          </div>
+        </div>
+        <div class="step">
+          <span class="number">3</span>
+          <div>
+            Manually verify first-use, suggested prompts, streamed output, stop, retry after
+            failure, scroll-up behavior, mobile layout, and sign-out behavior.
+          </div>
+        </div>
+        <div class="step">
+          <span class="number">4</span>
+          <div>
+            Check that provider secrets never appear in the Vite bundle or client request payload,
+            and that two users cannot read each other's stats.
+          </div>
+        </div>
+      </div>
+
+      <h2>Review decisions</h2>
+      <div class="panel decision">
+        <ol>
+          <li>
+            <strong>Shared package:</strong> use a new <code>@repo/ai</code> package for definitions
+            and schemas. The backend owns the <code>.server()</code> implementation and database
+            queries. The frontend imports only the plain definitions needed by the typed chat UI.
+          </li>
+          <li>
+            <strong>Provider and model:</strong> the implementation needs a provider choice. The
+            concrete draft assumes a server-side OpenAI text adapter with the model selected by an
+            environment variable. OpenRouter or another OpenAI-compatible provider can be
+            substituted without changing the UI or shared tool contract.
+          </li>
+          <li>
+            <strong>Persistence:</strong> the first release assumes session-only chat history.
+            Persisted threads would require a conversation schema, retention rules, and a history
+            API.
+          </li>
+          <li>
+            <strong>Attachments:</strong> the shared <code>Attachment</code> component is already
+            present, but file upload is outside the stats question scope. It should stay out of the
+            first implementation unless you want users to attach training plans or exports.
+          </li>
+          <li>
+            <strong>Placement:</strong> this plan puts the assistant below the charts on the
+            existing dashboard. A separate assistant route or a drawer can be added later without
+            changing the backend contract.
+          </li>
+        </ol>
+      </div>
+
+      <h2>References checked</h2>
+      <ul>
+        <li>
+          <a
+            href="https://tanstack.com/ai/latest/docs/ui/react"
+            target="_blank"
+            rel="noopener noreferrer"
+            >TanStack AI React Chat UI</a
+          >, for <code>createChatHook</code>, <code>useAppChat</code>, and the component
+          registration model.
+        </li>
+        <li>
+          <a
+            href="https://tanstack.com/ai/latest/docs/ui/recipes/basic-chat"
+            target="_blank"
+            rel="noopener noreferrer"
+            >TanStack AI basic chat recipe</a
+          >, for the smallest layout, message, text part, and input composition.
+        </li>
+        <li>
+          <a
+            href="https://tanstack.com/ai/latest/docs/chat/connection-adapters"
+            target="_blank"
+            rel="noopener noreferrer"
+            >TanStack AI connection adapters</a
+          >, for SSE, cookies, cancellation, and error handling.
+        </li>
+        <li>
+          <a
+            href="https://tanstack.com/ai/latest/docs/tools/server-tools"
+            target="_blank"
+            rel="noopener noreferrer"
+            >TanStack AI server tools</a
+          >, for typed, authenticated database access through
+          <code>toolDefinition().server()</code>.
+        </li>
+        <li>
+          <a
+            href="https://tanstack.com/ai/latest/docs/adapters/openai"
+            target="_blank"
+            rel="noopener noreferrer"
+            >TanStack AI OpenAI adapter</a
+          >, for the server-only provider setup.
+        </li>
+        <li>
+          <a
+            href="https://ui.shadcn.com/docs/components/aria/message-scroller"
+            target="_blank"
+            rel="noopener noreferrer"
+            >shadcn Message Scroller</a
+          >,
+          <a
+            href="https://ui.shadcn.com/docs/components/base/message"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Message</a
+          >, and
+          <a
+            href="https://ui.shadcn.com/docs/components/base/input-group"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Input Group</a
+          >, for the chat interaction primitives.
+        </li>
+      </ul>
+
+      <p class="small">
+        This document is a plan only. No application implementation was made as part of drafting it.
+      </p>
+    </main>
+  </body>
+</html>
