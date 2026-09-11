@@ -25,6 +25,9 @@
     },
     "env:validate": {
       "inputs": ["$TURBO_DEFAULT$"]
+    },
+    "test": {
+      "cache": false
     }
   }
 }
