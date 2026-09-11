@@ -19,7 +19,8 @@
     "lint": "oxlint",
     "release:prepare": "changeset",
     "release:push": "./scripts/release-push.sh",
-    "release:version": "./scripts/release-version.sh"
+    "release:version": "./scripts/release-version.sh",
+    "test": "turbo run test"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.1",
