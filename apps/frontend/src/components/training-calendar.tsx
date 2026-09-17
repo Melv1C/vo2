@@ -170,21 +170,33 @@ export function TrainingCalendar() {
     setDialogOpen(true);
   }
 
+  function handleMonthChange(nextMonth: Date) {
+    setMonth(nextMonth);
+    setSelectedDate(formatDateLocal(new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1)));
+  }
+
   function submitDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const durationMinutes = Number(draft.durationMinutes);
     if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 1_440)
       return;
 
+    const title = draft.title.trim();
+    const notes = draft.notes.trim();
     const common = {
       date: draft.date,
       sport: draft.sport,
       durationMinutes,
-      title: draft.title.trim() || undefined,
-      notes: draft.notes.trim() || undefined,
+      title: title || undefined,
+      notes: notes || undefined,
     };
     if (editingWorkout) {
-      updateMutation.mutate({ id: editingWorkout.id, ...common });
+      updateMutation.mutate({
+        id: editingWorkout.id,
+        ...common,
+        title: title || null,
+        notes: notes || null,
+      });
     } else {
       createMutation.mutate(common);
     }
@@ -225,7 +237,9 @@ export function TrainingCalendar() {
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Previous month"
-                onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+                onClick={() =>
+                  handleMonthChange(new Date(month.getFullYear(), month.getMonth() - 1, 1))
+                }
               >
                 <ChevronLeftIcon />
               </Button>
@@ -233,7 +247,9 @@ export function TrainingCalendar() {
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Next month"
-                onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+                onClick={() =>
+                  handleMonthChange(new Date(month.getFullYear(), month.getMonth() + 1, 1))
+                }
               >
                 <ChevronRightIcon />
               </Button>
@@ -243,7 +259,7 @@ export function TrainingCalendar() {
           <Calendar
             mode="single"
             month={month}
-            onMonthChange={setMonth}
+            onMonthChange={handleMonthChange}
             selected={dateFromString(selectedDate)}
             onSelect={(date) => {
               if (date) setSelectedDate(formatDateLocal(date));

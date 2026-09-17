@@ -109,7 +109,10 @@ export const activitiesRoutes = new Hono()
         name: stravaActivities.name,
         sportFamily: activityMetrics.sportFamily,
         sportType: stravaActivities.sportType,
-        durationMinutes: sql<number>`round(coalesce(${stravaActivities.movingTime}, ${stravaActivities.elapsedTime}, 0) / 60.0, 1)`,
+        durationMinutes:
+          sql<number>`round(coalesce(${stravaActivities.movingTime}, ${stravaActivities.elapsedTime}, 0) / 60.0, 1)`.mapWith(
+            Number,
+          ),
       })
       .from(stravaActivities)
       .leftJoin(activityMetrics, eq(activityMetrics.activityId, stravaActivities.id))

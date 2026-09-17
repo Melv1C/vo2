@@ -21,7 +21,7 @@ export const plannedWorkout$ = z.object({
 });
 
 export const listPlannedWorkoutsInputSchema$ = z.object({
-  from: z.iso.date().optional().meta({ description: "Inclusive start date in YYYY-MM-DD format" }),
+  from: z.iso.date().meta({ description: "Inclusive start date in YYYY-MM-DD format" }),
   to: z.iso.date().optional().meta({ description: "Inclusive end date in YYYY-MM-DD format" }),
 });
 

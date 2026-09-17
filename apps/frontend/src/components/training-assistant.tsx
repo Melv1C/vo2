@@ -286,7 +286,7 @@ function PlannedWorkoutToolCard({
         <p className="text-muted-foreground mt-1">
           {isSubmitting
             ? "Waiting for the update…"
-            : partState === "error"
+            : partState === "error" || resultState === "error"
               ? "The update failed."
               : "Update complete"}
         </p>

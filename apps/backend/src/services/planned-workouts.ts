@@ -25,7 +25,7 @@ function toPlannedWorkout(row: typeof plannedWorkouts.$inferSelect): PlannedWork
 
 export async function getPlannedWorkouts(
   userId: string,
-  input: { from?: string; to?: string },
+  input: { from: string; to?: string },
 ): Promise<{ from: string; to: string; workouts: PlannedWorkout[] }> {
   const range = normalizePlannedWorkoutRange(input);
   const rows = await db

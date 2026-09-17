@@ -12,8 +12,8 @@ function addDays(date: string, amount: number): string {
   return formatDate(next);
 }
 
-export function normalizePlannedWorkoutRange(input: { from?: string; to?: string }) {
-  const from = input.from ?? formatDate(new Date());
+export function normalizePlannedWorkoutRange(input: { from: string; to?: string }) {
+  const from = input.from;
   const to = input.to ?? addDays(from, DEFAULT_RANGE_DAYS);
   const fromTime = Date.parse(`${from}T00:00:00.000Z`);
   const toTime = Date.parse(`${to}T00:00:00.000Z`);
