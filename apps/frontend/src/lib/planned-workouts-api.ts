@@ -3,16 +3,16 @@ import type {
   PlannedWorkout,
   UpdatePlannedWorkoutInput,
 } from "@repo/ai";
+import type { InferResponseType } from "hono/client";
 
 import { apiClient } from "@/lib/api-client";
 
 export type { PlannedWorkout };
 
-type PlannedWorkoutsResponse = {
-  from: string;
-  to: string;
-  workouts: PlannedWorkout[];
-};
+type PlannedWorkoutsResponse = InferResponseType<
+  (typeof apiClient)["planned-workouts"]["$get"],
+  200
+>;
 
 export async function fetchPlannedWorkouts(
   from: string,
@@ -24,7 +24,7 @@ export async function fetchPlannedWorkouts(
     { init: { signal } },
   );
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-  return response.json() as Promise<PlannedWorkoutsResponse>;
+  return response.json();
 }
 
 export async function createPlannedWorkout(input: CreatePlannedWorkoutInput) {

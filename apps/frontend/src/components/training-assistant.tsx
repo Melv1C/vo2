@@ -212,11 +212,6 @@ function AssistantEmptyState() {
   );
 }
 
-type ApprovalLike = {
-  status: string;
-  resolveInterrupt: (approved: boolean) => void;
-};
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -230,36 +225,33 @@ function formatPlanDate(value: unknown): string {
   });
 }
 
-function approvalSummary(input: unknown, action: string): string {
-  if (!isRecord(input)) return `${action} this planned workout`;
-  const sport = typeof input.sport === "string" ? input.sport : "planned workout";
+type PlanningToolProps =
+  | ToolProps<ChatOptions, "create_planned_workout">
+  | ToolProps<ChatOptions, "update_planned_workout">
+  | ToolProps<ChatOptions, "delete_planned_workout">;
+type PlanningToolInput = NonNullable<PlanningToolProps["part"]["input"]>;
+
+function approvalSummary(input: PlanningToolInput | undefined, action: string): string {
+  if (!input) return `${action} this planned workout`;
+  const sport = "sport" in input && input.sport ? input.sport : "planned workout";
   const duration =
-    typeof input.durationMinutes === "number" ? ` for ${input.durationMinutes} min` : "";
-  const date = typeof input.date === "string" ? ` on ${formatPlanDate(input.date)}` : "";
+    "durationMinutes" in input && input.durationMinutes ? ` for ${input.durationMinutes} min` : "";
+  const date = "date" in input && input.date ? ` on ${formatPlanDate(input.date)}` : "";
   return `${action} a ${sport}${duration}${date}`;
 }
 
 function PlannedWorkoutToolCard({
-  input,
+  part,
   interrupt,
-  partState,
-  resultState,
+  result,
   action,
-}: {
-  input: unknown;
-  interrupt?: ApprovalLike;
-  partState: string;
-  resultState?: string;
+}: PlanningToolProps & {
   action: string;
 }) {
   const queryClient = useQueryClient();
   const isPending = interrupt?.status === "pending" || interrupt?.status === "staged";
   const isSubmitting = interrupt?.status === "submitting" || interrupt?.status === "validating";
-  const isComplete =
-    partState === "complete" ||
-    partState === "output-available" ||
-    resultState === "complete" ||
-    resultState === "output-available";
+  const isComplete = part.state === "complete" || result?.state === "complete";
 
   useEffect(() => {
     if (isComplete) void queryClient.invalidateQueries({ queryKey: plannedWorkoutsQueryKey });
@@ -271,7 +263,7 @@ function PlannedWorkoutToolCard({
         <CheckCircle2Icon
           className={isPending ? "text-primary size-3.5" : "text-muted-foreground size-3.5"}
         />
-        <span className="font-medium">{approvalSummary(input, action)}</span>
+        <span className="font-medium">{approvalSummary(part.input, action)}</span>
       </div>
       {isPending && interrupt ? (
         <div className="mt-2 flex gap-2">
@@ -286,7 +278,7 @@ function PlannedWorkoutToolCard({
         <p className="text-muted-foreground mt-1">
           {isSubmitting
             ? "Waiting for the update…"
-            : partState === "error" || resultState === "error"
+            : part.state === "error" || result?.state === "error"
               ? "The update failed."
               : "Update complete"}
         </p>
@@ -327,15 +319,7 @@ function CreatePlannedWorkoutTool({
   interrupt,
   result,
 }: ToolProps<ChatOptions, "create_planned_workout">) {
-  return (
-    <PlannedWorkoutToolCard
-      input={part.input}
-      interrupt={interrupt}
-      partState={part.state}
-      resultState={result?.state}
-      action="Plan"
-    />
-  );
+  return <PlannedWorkoutToolCard part={part} interrupt={interrupt} result={result} action="Plan" />;
 }
 
 function UpdatePlannedWorkoutTool({
@@ -344,13 +328,7 @@ function UpdatePlannedWorkoutTool({
   result,
 }: ToolProps<ChatOptions, "update_planned_workout">) {
   return (
-    <PlannedWorkoutToolCard
-      input={part.input}
-      interrupt={interrupt}
-      partState={part.state}
-      resultState={result?.state}
-      action="Update"
-    />
+    <PlannedWorkoutToolCard part={part} interrupt={interrupt} result={result} action="Update" />
   );
 }
 
@@ -360,13 +338,7 @@ function DeletePlannedWorkoutTool({
   result,
 }: ToolProps<ChatOptions, "delete_planned_workout">) {
   return (
-    <PlannedWorkoutToolCard
-      input={part.input}
-      interrupt={interrupt}
-      partState={part.state}
-      resultState={result?.state}
-      action="Delete"
-    />
+    <PlannedWorkoutToolCard part={part} interrupt={interrupt} result={result} action="Delete" />
   );
 }
 

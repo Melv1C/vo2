@@ -8,7 +8,7 @@ import { useState } from "react";
 
 import { DailyMetricsCharts } from "@/components/daily-metrics-charts";
 import { TrainingAssistant } from "@/components/training-assistant";
-import { TrainingCalendar } from "@/components/training-calendar";
+import { TrainingCalendar } from "@/features/training-calendar";
 import { activitiesQueryOptions } from "@/lib/activities-query";
 import { apiClient } from "@/lib/api-client";
 import { authClient, signIn, signOut, useSession } from "@/lib/auth-client";

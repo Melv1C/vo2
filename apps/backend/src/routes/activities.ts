@@ -1,10 +1,5 @@
-import { listPlannedWorkoutsInputSchema$ } from "@repo/ai";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { db } from "@/database";
-import { activityMetrics } from "@/database/entities/activity-metrics";
-import { stravaActivities } from "@/database/entities/strava-activities";
 import {
   getSyncState,
   kickBackgroundSync,
@@ -23,8 +18,6 @@ const emptySummary = {
   streamsPendingCount: 0,
   lastStreamSyncedAt: null,
 };
-
-const activityLocalDate = sql<string>`coalesce(date(${stravaActivities.startDateLocal}), date(${stravaActivities.startDate}))`;
 
 export const activitiesRoutes = new Hono()
   .use(isAuthenticated)
@@ -90,42 +83,6 @@ export const activitiesRoutes = new Hono()
       fetchedThisRun: result.streamsFetchedThisRun,
       rateLimited: result.rateLimited,
     });
-  })
-  .get("/calendar", async (c) => {
-    const parsedRange = listPlannedWorkoutsInputSchema$.safeParse({
-      from: c.req.query("from"),
-      to: c.req.query("to"),
-    });
-    const from = parsedRange.success ? parsedRange.data.from : undefined;
-    const to = parsedRange.success ? parsedRange.data.to : undefined;
-    if (!from || !to || from > to) {
-      return c.json({ message: "A valid from and to date are required" }, 400);
-    }
-
-    const rows = await db
-      .select({
-        id: stravaActivities.id,
-        date: activityLocalDate,
-        name: stravaActivities.name,
-        sportFamily: activityMetrics.sportFamily,
-        sportType: stravaActivities.sportType,
-        durationMinutes:
-          sql<number>`round(coalesce(${stravaActivities.movingTime}, ${stravaActivities.elapsedTime}, 0) / 60.0, 1)`.mapWith(
-            Number,
-          ),
-      })
-      .from(stravaActivities)
-      .leftJoin(activityMetrics, eq(activityMetrics.activityId, stravaActivities.id))
-      .where(
-        and(
-          eq(stravaActivities.userId, c.get("user")!.id),
-          gte(activityLocalDate, from),
-          lte(activityLocalDate, to),
-        ),
-      )
-      .orderBy(activityLocalDate);
-
-    return c.json({ activities: rows });
   })
   .get("/:id/metrics", async (c) => {
     const userId = c.get("user")!.id;

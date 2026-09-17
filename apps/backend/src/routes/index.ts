@@ -6,6 +6,7 @@ import { useAuth } from "@/middlewares/use-auth";
 import { useLogger } from "@/middlewares/use-logger";
 
 import { activitiesRoutes } from "./activities";
+import { activityCalendarRoutes } from "./activity-calendar";
 import { athleteRoutes } from "./athlete";
 import { chatRoutes } from "./chat";
 import { healthRoutes } from "./health";
@@ -19,6 +20,7 @@ export const routes = new Hono()
   .use(useLogger)
   .route("/health", healthRoutes)
   .route("/activities", activitiesRoutes)
+  .route("/activities/calendar", activityCalendarRoutes)
   .route("/athlete", athleteRoutes)
   .route("/chat", chatRoutes)
   .route("/metrics", metricsRoutes)
