@@ -43,6 +43,7 @@ import {
 } from "@tanstack/ai-react/ui";
 import { streamingMarkdownExtension } from "@tanstack/markdown/extensions/streaming";
 import { Markdown } from "@tanstack/markdown/react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIcon,
   AlertCircleIcon,
@@ -57,10 +58,11 @@ import {
   XIcon,
   SquareIcon,
 } from "lucide-react";
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { ENV } from "varlock/env";
 
 import { useSession } from "@/lib/auth-client";
+import { plannedWorkoutsQueryKey } from "@/lib/planned-workouts-query";
 
 const chatOptions = {
   connection: fetchServerSentEvents(`${ENV.BACKEND_URL}/api/chat`, {
@@ -241,15 +243,27 @@ function PlannedWorkoutToolCard({
   input,
   interrupt,
   partState,
+  resultState,
   action,
 }: {
   input: unknown;
   interrupt?: ApprovalLike;
   partState: string;
+  resultState?: string;
   action: string;
 }) {
+  const queryClient = useQueryClient();
   const isPending = interrupt?.status === "pending" || interrupt?.status === "staged";
   const isSubmitting = interrupt?.status === "submitting" || interrupt?.status === "validating";
+  const isComplete =
+    partState === "complete" ||
+    partState === "output-available" ||
+    resultState === "complete" ||
+    resultState === "output-available";
+
+  useEffect(() => {
+    if (isComplete) void queryClient.invalidateQueries({ queryKey: plannedWorkoutsQueryKey });
+  }, [isComplete, queryClient]);
 
   return (
     <div className="bg-primary/5 border-primary/20 w-full max-w-[90%] rounded-xl border px-3 py-2.5 text-xs">
@@ -311,12 +325,14 @@ function ListPlannedWorkoutsTool({
 function CreatePlannedWorkoutTool({
   part,
   interrupt,
+  result,
 }: ToolProps<ChatOptions, "create_planned_workout">) {
   return (
     <PlannedWorkoutToolCard
       input={part.input}
       interrupt={interrupt}
       partState={part.state}
+      resultState={result?.state}
       action="Plan"
     />
   );
@@ -325,12 +341,14 @@ function CreatePlannedWorkoutTool({
 function UpdatePlannedWorkoutTool({
   part,
   interrupt,
+  result,
 }: ToolProps<ChatOptions, "update_planned_workout">) {
   return (
     <PlannedWorkoutToolCard
       input={part.input}
       interrupt={interrupt}
       partState={part.state}
+      resultState={result?.state}
       action="Update"
     />
   );
@@ -339,12 +357,14 @@ function UpdatePlannedWorkoutTool({
 function DeletePlannedWorkoutTool({
   part,
   interrupt,
+  result,
 }: ToolProps<ChatOptions, "delete_planned_workout">) {
   return (
     <PlannedWorkoutToolCard
       input={part.input}
       interrupt={interrupt}
       partState={part.state}
+      resultState={result?.state}
       action="Delete"
     />
   );

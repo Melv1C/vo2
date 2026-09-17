@@ -1,3 +1,4 @@
+import { listPlannedWorkoutsInputSchema$ } from "@repo/ai";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { Hono } from "hono";
 
@@ -91,8 +92,12 @@ export const activitiesRoutes = new Hono()
     });
   })
   .get("/calendar", async (c) => {
-    const from = c.req.query("from");
-    const to = c.req.query("to");
+    const parsedRange = listPlannedWorkoutsInputSchema$.safeParse({
+      from: c.req.query("from"),
+      to: c.req.query("to"),
+    });
+    const from = parsedRange.success ? parsedRange.data.from : undefined;
+    const to = parsedRange.success ? parsedRange.data.to : undefined;
     if (!from || !to || from > to) {
       return c.json({ message: "A valid from and to date are required" }, 400);
     }
