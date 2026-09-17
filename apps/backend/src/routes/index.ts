@@ -10,6 +10,7 @@ import { athleteRoutes } from "./athlete";
 import { chatRoutes } from "./chat";
 import { healthRoutes } from "./health";
 import { metricsRoutes } from "./metrics";
+import { plannedWorkoutRoutes } from "./planned-workouts";
 
 export const routes = new Hono()
   .use(useAuth)
@@ -21,6 +22,7 @@ export const routes = new Hono()
   .route("/athlete", athleteRoutes)
   .route("/chat", chatRoutes)
   .route("/metrics", metricsRoutes)
+  .route("/planned-workouts", plannedWorkoutRoutes)
   .onError((error, c) => {
     logger.error("Unhandled error occurred", { error });
     return c.json({ message: "Internal Server Error" }, 500);

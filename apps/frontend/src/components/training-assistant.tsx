@@ -1,4 +1,10 @@
-import { trainingStatsToolDefinition } from "@repo/ai";
+import {
+  createPlannedWorkoutToolDefinition,
+  deletePlannedWorkoutToolDefinition,
+  listPlannedWorkoutsToolDefinition,
+  trainingStatsToolDefinition,
+  updatePlannedWorkoutToolDefinition,
+} from "@repo/ai";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Bubble, BubbleContent } from "@repo/ui/components/ui/bubble";
@@ -60,7 +66,13 @@ const chatOptions = {
   connection: fetchServerSentEvents(`${ENV.BACKEND_URL}/api/chat`, {
     credentials: "include",
   }),
-  tools: [trainingStatsToolDefinition],
+  tools: [
+    trainingStatsToolDefinition,
+    listPlannedWorkoutsToolDefinition,
+    createPlannedWorkoutToolDefinition,
+    updatePlannedWorkoutToolDefinition,
+    deletePlannedWorkoutToolDefinition,
+  ],
 };
 
 type ChatOptions = typeof chatOptions;
@@ -165,7 +177,7 @@ function AssistantEmptyState() {
   const suggestions = [
     "How has my training load changed recently?",
     "Am I carrying more fatigue than usual?",
-    "Which sports contributed most to my load?",
+    "Plan a 45-minute run for tomorrow",
   ];
 
   return (
@@ -195,6 +207,146 @@ function AssistantEmptyState() {
         </div>
       </EmptyContent>
     </Empty>
+  );
+}
+
+type ApprovalLike = {
+  status: string;
+  resolveInterrupt: (approved: boolean) => void;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function formatPlanDate(value: unknown): string {
+  if (typeof value !== "string") return "an unspecified day";
+  return new Date(`${value}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function approvalSummary(input: unknown, action: string): string {
+  if (!isRecord(input)) return `${action} this planned workout`;
+  const sport = typeof input.sport === "string" ? input.sport : "planned workout";
+  const duration =
+    typeof input.durationMinutes === "number" ? ` for ${input.durationMinutes} min` : "";
+  const date = typeof input.date === "string" ? ` on ${formatPlanDate(input.date)}` : "";
+  return `${action} a ${sport}${duration}${date}`;
+}
+
+function PlannedWorkoutToolCard({
+  input,
+  interrupt,
+  partState,
+  action,
+}: {
+  input: unknown;
+  interrupt?: ApprovalLike;
+  partState: string;
+  action: string;
+}) {
+  const isPending = interrupt?.status === "pending" || interrupt?.status === "staged";
+  const isSubmitting = interrupt?.status === "submitting" || interrupt?.status === "validating";
+
+  return (
+    <div className="bg-primary/5 border-primary/20 w-full max-w-[90%] rounded-xl border px-3 py-2.5 text-xs">
+      <div className="flex items-center gap-2">
+        <CheckCircle2Icon
+          className={isPending ? "text-primary size-3.5" : "text-muted-foreground size-3.5"}
+        />
+        <span className="font-medium">{approvalSummary(input, action)}</span>
+      </div>
+      {isPending && interrupt ? (
+        <div className="mt-2 flex gap-2">
+          <Button size="xs" onClick={() => interrupt.resolveInterrupt(true)}>
+            Confirm
+          </Button>
+          <Button size="xs" variant="outline" onClick={() => interrupt.resolveInterrupt(false)}>
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <p className="text-muted-foreground mt-1">
+          {isSubmitting
+            ? "Waiting for the update…"
+            : partState === "error"
+              ? "The update failed."
+              : "Update complete"}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ListPlannedWorkoutsTool({
+  part,
+  result,
+}: ToolProps<ChatOptions, "list_planned_workouts">) {
+  const output = part.output ?? result?.content;
+  const count = isRecord(output) && Array.isArray(output.workouts) ? output.workouts.length : null;
+  return (
+    <Collapsible className="group">
+      <CollapsibleTrigger className="text-muted-foreground hover:text-foreground flex w-full items-center gap-2 py-1 text-left text-xs transition-colors">
+        <ActivityIcon className="size-3.5" />
+        <span className="flex-1 font-medium">Training plan</span>
+        <span className="text-[11px]">
+          {count == null ? "Loading" : `${count} workout${count === 1 ? "" : "s"}`}
+        </span>
+        <ChevronDownIcon className="size-3.5 shrink-0 transition-transform group-aria-expanded:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="text-muted-foreground ml-1.5 border-l pl-5">
+        <pre className="max-h-40 overflow-auto py-1 font-mono text-[10px] leading-relaxed break-words whitespace-pre-wrap">
+          {typeof output === "string"
+            ? output
+            : (JSON.stringify(output, null, 2) ?? "No plan output yet.")}
+        </pre>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function CreatePlannedWorkoutTool({
+  part,
+  interrupt,
+}: ToolProps<ChatOptions, "create_planned_workout">) {
+  return (
+    <PlannedWorkoutToolCard
+      input={part.input}
+      interrupt={interrupt}
+      partState={part.state}
+      action="Plan"
+    />
+  );
+}
+
+function UpdatePlannedWorkoutTool({
+  part,
+  interrupt,
+}: ToolProps<ChatOptions, "update_planned_workout">) {
+  return (
+    <PlannedWorkoutToolCard
+      input={part.input}
+      interrupt={interrupt}
+      partState={part.state}
+      action="Update"
+    />
+  );
+}
+
+function DeletePlannedWorkoutTool({
+  part,
+  interrupt,
+}: ToolProps<ChatOptions, "delete_planned_workout">) {
+  return (
+    <PlannedWorkoutToolCard
+      input={part.input}
+      interrupt={interrupt}
+      partState={part.state}
+      action="Delete"
+    />
   );
 }
 
@@ -444,7 +596,11 @@ const { useAppChat, useChatContext } = createChatHook({
     fallback: FallbackPart,
   },
   toolsComponents: {
+    list_planned_workouts: ListPlannedWorkoutsTool,
     get_training_stats: TrainingStatsTool,
+    create_planned_workout: CreatePlannedWorkoutTool,
+    update_planned_workout: UpdatePlannedWorkoutTool,
+    delete_planned_workout: DeletePlannedWorkoutTool,
   },
 });
 
