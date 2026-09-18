@@ -43,14 +43,22 @@ export const createPlannedWorkoutOutputSchema$ = z.object({
   workout: plannedWorkout$,
 });
 
-export const updatePlannedWorkoutInputSchema$ = z
-  .object({
+const updatePlannedWorkoutFields$ = z.object({
+  date: z.iso.date().optional(),
+  sport: plannedWorkoutSport$.optional(),
+  durationMinutes: z.int().min(1).max(1_440).optional(),
+  title: z.string().trim().max(200).nullish(),
+  notes: z.string().trim().max(2_000).nullish(),
+});
+
+export const updatePlannedWorkoutBodySchema$ = updatePlannedWorkoutFields$.refine(
+  (value) => Object.keys(value).length > 0,
+  { error: "At least one workout field must be updated" },
+);
+
+export const updatePlannedWorkoutInputSchema$ = updatePlannedWorkoutFields$
+  .extend({
     id: z.string().trim().min(1),
-    date: z.iso.date().optional(),
-    sport: plannedWorkoutSport$.optional(),
-    durationMinutes: z.int().min(1).max(1_440).optional(),
-    title: z.string().trim().max(200).nullish(),
-    notes: z.string().trim().max(2_000).nullish(),
   })
   .refine((value) => Object.keys(value).some((key) => key !== "id"), {
     error: "At least one workout field must be updated",
@@ -110,6 +118,7 @@ export type ListPlannedWorkoutsInput = z.infer<typeof listPlannedWorkoutsInputSc
 export type ListPlannedWorkoutsOutput = z.infer<typeof listPlannedWorkoutsOutputSchema$>;
 export type CreatePlannedWorkoutInput = z.infer<typeof createPlannedWorkoutInputSchema$>;
 export type CreatePlannedWorkoutOutput = z.infer<typeof createPlannedWorkoutOutputSchema$>;
+export type UpdatePlannedWorkoutBody = z.infer<typeof updatePlannedWorkoutBodySchema$>;
 export type UpdatePlannedWorkoutInput = z.infer<typeof updatePlannedWorkoutInputSchema$>;
 export type UpdatePlannedWorkoutOutput = z.infer<typeof updatePlannedWorkoutOutputSchema$>;
 export type DeletePlannedWorkoutInput = z.infer<typeof deletePlannedWorkoutInputSchema$>;

@@ -3,7 +3,7 @@ import {
   createPlannedWorkoutInputSchema$,
   listPlannedWorkoutsInputSchema$,
   listPlannedWorkoutsOutputSchema$,
-  updatePlannedWorkoutInputSchema$,
+  updatePlannedWorkoutBodySchema$,
 } from "@repo/ai";
 import { Hono } from "hono";
 import * as z from "zod";
@@ -21,7 +21,6 @@ const querySchema = listPlannedWorkoutsInputSchema$.refine(
   ({ from, to }) => to === undefined || isPlannedWorkoutRangeWithinLimit(from, to),
 );
 const idParamSchema$ = z.object({ id: z.string().trim().min(1) });
-const updateBodySchema$ = updatePlannedWorkoutInputSchema$.omit({ id: true });
 
 export const plannedWorkoutRoutes = new Hono()
   .use(isAuthenticated)
@@ -39,7 +38,7 @@ export const plannedWorkoutRoutes = new Hono()
   .patch(
     "/:id",
     sValidator("param", idParamSchema$),
-    sValidator("json", updateBodySchema$),
+    sValidator("json", updatePlannedWorkoutBodySchema$),
     async (c) => {
       const workout = await updatePlannedWorkout(c.get("user")!.id, {
         id: c.req.valid("param").id,

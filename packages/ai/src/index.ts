@@ -17,6 +17,7 @@ export {
   listPlannedWorkoutsToolDefinition,
   plannedWorkout$,
   plannedWorkoutSport$,
+  updatePlannedWorkoutBodySchema$,
   updatePlannedWorkoutInputSchema$,
   updatePlannedWorkoutOutputSchema$,
   updatePlannedWorkoutToolDefinition,
@@ -28,6 +29,7 @@ export {
   type ListPlannedWorkoutsOutput,
   type PlannedWorkout,
   type PlannedWorkoutSport,
+  type UpdatePlannedWorkoutBody,
   type UpdatePlannedWorkoutInput,
   type UpdatePlannedWorkoutOutput,
 } from "./planned-workouts";
