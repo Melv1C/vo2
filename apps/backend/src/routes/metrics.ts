@@ -1,3 +1,4 @@
+import { sValidator } from "@hono/standard-validator";
 import { Hono } from "hono";
 
 import { isAuthenticated } from "@/middlewares/use-auth";
@@ -12,12 +13,9 @@ import { getDailyTrainingLoadSeries } from "@/services/metrics/rebuild-daily-tra
 
 export const metricsRoutes = new Hono()
   .use(isAuthenticated)
-  .get("/daily", async (c) => {
+  .get("/daily", sValidator("query", dailyMetricsQuery$), async (c) => {
     const userId = c.get("user")!.id;
-    const query = dailyMetricsQuery$.parse({
-      from: c.req.query("from"),
-      to: c.req.query("to"),
-    });
+    const query = c.req.valid("query");
 
     const rows = await getDailyTrainingLoadSeries(userId, query.from, query.to);
 
@@ -25,13 +23,9 @@ export const metricsRoutes = new Hono()
       series: rows.map((row) => dailyTrainingLoadPoint$.parse(row)),
     });
   })
-  .post("/recompute", async (c) => {
+  .post("/recompute", sValidator("query", recomputeMetricsQuery$), async (c) => {
     const userId = c.get("user")!.id;
-    const query = recomputeMetricsQuery$.parse({
-      scope: c.req.query("scope") ?? "all",
-      from: c.req.query("from"),
-      to: c.req.query("to"),
-    });
+    const query = c.req.valid("query");
 
     const summary = await recomputeMetricsForUser(userId, {
       scope: query.scope,

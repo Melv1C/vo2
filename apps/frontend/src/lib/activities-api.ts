@@ -13,3 +13,16 @@ export async function fetchActivities(signal?: AbortSignal) {
 
   return res.json();
 }
+
+type CalendarActivitiesResponse = InferResponseType<typeof apiClient.calendar.$get, 200>;
+export type CalendarActivity = CalendarActivitiesResponse["activities"][number];
+
+export async function fetchCalendarActivities(
+  from: string,
+  to: string,
+  signal?: AbortSignal,
+): Promise<CalendarActivitiesResponse> {
+  const response = await apiClient.calendar.$get({ query: { from, to } }, { init: { signal } });
+  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+  return response.json();
+}

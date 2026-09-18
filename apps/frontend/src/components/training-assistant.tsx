@@ -1,4 +1,3 @@
-import { trainingStatsToolDefinition } from "@repo/ai";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Bubble, BubbleContent } from "@repo/ui/components/ui/bubble";
@@ -26,7 +25,6 @@ import {
   MessageScrollerViewport,
 } from "@repo/ui/components/ui/message-scroller";
 import { Textarea } from "@repo/ui/components/ui/textarea";
-import { fetchServerSentEvents } from "@tanstack/ai-react";
 import {
   createChatHook,
   type InputProps,
@@ -52,18 +50,19 @@ import {
   SquareIcon,
 } from "lucide-react";
 import { createContext, useContext, useState } from "react";
-import { ENV } from "varlock/env";
 
+import {
+  trainingAssistantChatOptions,
+  type TrainingAssistantChatOptions,
+} from "@/features/training-assistant/chat-options";
+import {
+  CreatePlannedWorkoutTool,
+  DeletePlannedWorkoutTool,
+  ListPlannedWorkoutsTool,
+  UpdatePlannedWorkoutTool,
+} from "@/features/training-assistant/planned-workout-tools";
 import { useSession } from "@/lib/auth-client";
-
-const chatOptions = {
-  connection: fetchServerSentEvents(`${ENV.BACKEND_URL}/api/chat`, {
-    credentials: "include",
-  }),
-  tools: [trainingStatsToolDefinition],
-};
-
-type ChatOptions = typeof chatOptions;
+type ChatOptions = TrainingAssistantChatOptions;
 
 const TrainingAssistantControls = createContext<{ close: () => void } | null>(null);
 
@@ -165,7 +164,7 @@ function AssistantEmptyState() {
   const suggestions = [
     "How has my training load changed recently?",
     "Am I carrying more fatigue than usual?",
-    "Which sports contributed most to my load?",
+    "Plan a 45-minute run for tomorrow",
   ];
 
   return (
@@ -431,7 +430,7 @@ function ChatInput(_props: InputProps<ChatOptions>) {
 }
 
 const { useAppChat, useChatContext } = createChatHook({
-  options: chatOptions,
+  options: trainingAssistantChatOptions,
   components: {
     layout: ChatLayout,
     message: ChatMessage,
@@ -444,7 +443,11 @@ const { useAppChat, useChatContext } = createChatHook({
     fallback: FallbackPart,
   },
   toolsComponents: {
+    list_planned_workouts: ListPlannedWorkoutsTool,
     get_training_stats: TrainingStatsTool,
+    create_planned_workout: CreatePlannedWorkoutTool,
+    update_planned_workout: UpdatePlannedWorkoutTool,
+    delete_planned_workout: DeletePlannedWorkoutTool,
   },
 });
 
