@@ -11,6 +11,9 @@ import { ENV } from "varlock/env";
 export const trainingAssistantChatOptions = {
   connection: fetchServerSentEvents(ENV.BACKEND_URL + "/api/chat", {
     credentials: "include",
+    headers: {
+      "x-user-timezone": Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    },
   }),
   tools: [
     trainingStatsToolDefinition,

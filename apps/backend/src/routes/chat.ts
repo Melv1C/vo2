@@ -10,6 +10,10 @@ import { bodyLimit } from "hono/body-limit";
 import { ENV } from "varlock/env";
 
 import { isAuthenticated } from "@/middlewares/use-auth";
+import {
+  getAssistantCalendarContext,
+  resolveAssistantTimeZone,
+} from "@/services/ai/calendar-context";
 import { MAX_CHAT_BODY_BYTES, validateChatMessageLimits } from "@/services/ai/chat-limits";
 import {
   createPlannedWorkoutTool,
@@ -57,10 +61,21 @@ export const chatRoutes = new Hono().use(isAuthenticated).post(
       return c.json({ message: "AI chat is not configured" }, 503);
     }
 
+    const calendarContext = getAssistantCalendarContext(
+      resolveAssistantTimeZone(c.req.header("x-user-timezone")),
+    );
+    const runtimeInstructions = `${assistantInstructions}
+
+Trusted calendar context for this request:
+- Today is ${calendarContext.date} (${calendarContext.weekday})
+- Athlete timezone: ${calendarContext.timeZone}
+
+Use this date and timezone when interpreting relative dates such as today, tomorrow, and next Monday. Send explicit YYYY-MM-DD dates to planning tools.`;
+
     const stream = chat({
       adapter,
       messages: params.messages,
-      systemPrompts: [assistantInstructions],
+      systemPrompts: [runtimeInstructions],
       tools: [
         trainingStatsTool,
         listPlannedWorkoutsTool,
@@ -68,7 +83,7 @@ export const chatRoutes = new Hono().use(isAuthenticated).post(
         updatePlannedWorkoutTool,
         deletePlannedWorkoutTool,
       ],
-      context: { userId },
+      context: { userId, ...calendarContext },
       agentLoopStrategy: maxIterations(4),
       modelOptions: {
         temperature: 0.2,
