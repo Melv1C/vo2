@@ -4,12 +4,14 @@ Shared language for planned training in VO2 and its relationship to imported act
 
 ## Planned training
 
-**Planned workout**:
-A workout the athlete intends to do on a calendar date. It is separate from any completed activity imported from Strava, and a date may contain multiple planned workouts.
+**Workout**:
+The training the athlete intends to do on a calendar date. It is stored as a planned workout record, separate from any completed activity imported from Strava, and a date may contain multiple workouts.
+
+Use **workout** for planned training in product language and API resource names. Use **planned workout** when the distinction from a completed activity needs to be explicit. Database and internal implementation may retain `planned_workout` names where they describe storage or code boundaries.
 
 **Activity**:
 A completed workout imported from Strava. An activity is historical training data, not a plan.
-_Avoid_: Planned workout, session
+_Avoid_: “completed workout” when referring to the record type; “planned workout” when referring to an activity.
 
 **Calendar date**:
 The athlete's local day on which a planned workout belongs. Planned workouts do not have a time of day in the first version.

@@ -6,8 +6,8 @@ import { useAuth } from "@/middlewares/use-auth";
 import { useLogger } from "@/middlewares/use-logger";
 
 import { activitiesRoutes } from "./activities";
-import { activityCalendarRoutes } from "./activity-calendar";
 import { athleteRoutes } from "./athlete";
+import { calendarRoutes } from "./calendar";
 import { chatRoutes } from "./chat";
 import { healthRoutes } from "./health";
 import { metricsRoutes } from "./metrics";
@@ -20,11 +20,11 @@ export const routes = new Hono()
   .use(useLogger)
   .route("/health", healthRoutes)
   .route("/activities", activitiesRoutes)
-  .route("/activities/calendar", activityCalendarRoutes)
+  .route("/calendar", calendarRoutes)
   .route("/athlete", athleteRoutes)
   .route("/chat", chatRoutes)
   .route("/metrics", metricsRoutes)
-  .route("/planned-workouts", plannedWorkoutRoutes)
+  .route("/workouts", plannedWorkoutRoutes)
   .onError((error, c) => {
     logger.error("Unhandled error occurred", { error });
     return c.json({ message: "Internal Server Error" }, 500);

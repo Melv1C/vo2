@@ -12,6 +12,7 @@ type TrainingCalendarDayProps = {
   selectedWorkouts: PlannedWorkout[];
   selectedActivities: CalendarActivity[];
   isLoading: boolean;
+  hasError: boolean;
   onCreate: () => void;
   onEdit: (workout: PlannedWorkout) => void;
   onDelete: (id: string) => void;
@@ -30,6 +31,7 @@ export function TrainingCalendarDay({
   selectedWorkouts,
   selectedActivities,
   isLoading,
+  hasError,
   onCreate,
   onEdit,
   onDelete,
@@ -105,7 +107,7 @@ export function TrainingCalendarDay({
         ))}
       </div>
 
-      {selectedWorkouts.length === 0 && selectedActivities.length === 0 ? (
+      {!hasError && selectedWorkouts.length === 0 && selectedActivities.length === 0 ? (
         <div className="bg-muted/30 mt-2 rounded-lg border border-dashed p-4">
           <p className="text-muted-foreground text-xs">Nothing here yet.</p>
           <Button variant="link" className="mt-1 h-auto p-0 text-xs" onClick={onCreate}>

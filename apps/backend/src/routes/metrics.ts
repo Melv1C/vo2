@@ -13,37 +13,25 @@ import { getDailyTrainingLoadSeries } from "@/services/metrics/rebuild-daily-tra
 
 export const metricsRoutes = new Hono()
   .use(isAuthenticated)
-  .get(
-    "/daily",
-    sValidator("query", dailyMetricsQuery$, (result, c) => {
-      if (!result.success) return c.json({ message: "Invalid metrics date range" }, 400);
-    }),
-    async (c) => {
-      const userId = c.get("user")!.id;
-      const query = c.req.valid("query");
+  .get("/daily", sValidator("query", dailyMetricsQuery$), async (c) => {
+    const userId = c.get("user")!.id;
+    const query = c.req.valid("query");
 
-      const rows = await getDailyTrainingLoadSeries(userId, query.from, query.to);
+    const rows = await getDailyTrainingLoadSeries(userId, query.from, query.to);
 
-      return c.json({
-        series: rows.map((row) => dailyTrainingLoadPoint$.parse(row)),
-      });
-    },
-  )
-  .post(
-    "/recompute",
-    sValidator("query", recomputeMetricsQuery$, (result, c) => {
-      if (!result.success) return c.json({ message: "Invalid metrics recompute range" }, 400);
-    }),
-    async (c) => {
-      const userId = c.get("user")!.id;
-      const query = c.req.valid("query");
+    return c.json({
+      series: rows.map((row) => dailyTrainingLoadPoint$.parse(row)),
+    });
+  })
+  .post("/recompute", sValidator("query", recomputeMetricsQuery$), async (c) => {
+    const userId = c.get("user")!.id;
+    const query = c.req.valid("query");
 
-      const summary = await recomputeMetricsForUser(userId, {
-        scope: query.scope,
-        from: query.from ? new Date(`${query.from}T00:00:00.000Z`) : undefined,
-        to: query.to ? new Date(`${query.to}T23:59:59.999Z`) : undefined,
-      });
+    const summary = await recomputeMetricsForUser(userId, {
+      scope: query.scope,
+      from: query.from ? new Date(`${query.from}T00:00:00.000Z`) : undefined,
+      to: query.to ? new Date(`${query.to}T23:59:59.999Z`) : undefined,
+    });
 
-      return c.json(recomputeMetricsResponse$.parse(summary));
-    },
-  );
+    return c.json(recomputeMetricsResponse$.parse(summary));
+  });

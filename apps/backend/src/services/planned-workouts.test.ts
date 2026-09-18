@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { normalizePlannedWorkoutRange } from "./planned-workouts-range";
+import {
+  isPlannedWorkoutRangeWithinLimit,
+  normalizePlannedWorkoutRange,
+} from "./planned-workouts-range";
 
 describe("normalizePlannedWorkoutRange", () => {
   test("defaults to a 31-day window starting today", () => {
@@ -20,5 +23,10 @@ describe("normalizePlannedWorkoutRange", () => {
     expect(() => normalizePlannedWorkoutRange({ from: "2026-01-01", to: "2027-01-02" })).toThrow(
       "cannot exceed 366 days",
     );
+  });
+
+  test("accepts at most 366 days for validated ranges", () => {
+    expect(isPlannedWorkoutRangeWithinLimit("2026-01-01", "2027-01-01")).toBe(true);
+    expect(isPlannedWorkoutRangeWithinLimit("2026-01-01", "2027-01-02")).toBe(false);
   });
 });

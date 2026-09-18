@@ -9,39 +9,33 @@ import { apiClient } from "@/lib/api-client";
 
 export type { PlannedWorkout };
 
-type PlannedWorkoutsResponse = InferResponseType<
-  (typeof apiClient)["planned-workouts"]["$get"],
-  200
->;
+type PlannedWorkoutsResponse = InferResponseType<typeof apiClient.workouts.$get, 200>;
 
 export async function fetchPlannedWorkouts(
   from: string,
   to: string,
   signal?: AbortSignal,
 ): Promise<PlannedWorkoutsResponse> {
-  const response = await apiClient["planned-workouts"].$get(
-    { query: { from, to } },
-    { init: { signal } },
-  );
+  const response = await apiClient.workouts.$get({ query: { from, to } }, { init: { signal } });
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
   return response.json();
 }
 
 export async function createPlannedWorkout(input: CreatePlannedWorkoutInput) {
-  const response = await apiClient["planned-workouts"].$post({ json: input });
+  const response = await apiClient.workouts.$post({ json: input });
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
   return response.json();
 }
 
 export async function updatePlannedWorkout(input: UpdatePlannedWorkoutInput) {
   const { id, ...changes } = input;
-  const response = await apiClient["planned-workouts"][id].$patch({ json: changes });
+  const response = await apiClient.workouts[":id"].$patch({ param: { id }, json: changes });
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
   return response.json();
 }
 
 export async function deletePlannedWorkout(id: string) {
-  const response = await apiClient["planned-workouts"][id].$delete();
+  const response = await apiClient.workouts[":id"].$delete({ param: { id } });
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
   return response.json();
 }

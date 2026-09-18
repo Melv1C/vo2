@@ -8,22 +8,19 @@ import { db } from "@/database";
 import { activityMetrics } from "@/database/entities/activity-metrics";
 import { stravaActivities } from "@/database/entities/strava-activities";
 import { isAuthenticated } from "@/middlewares/use-auth";
+import { isPlannedWorkoutRangeWithinLimit } from "@/services/planned-workouts-range";
 
-const calendarQuery$ = listPlannedWorkoutsInputSchema$.extend({
-  to: z.iso.date(),
-});
+const calendarQuery$ = listPlannedWorkoutsInputSchema$
+  .extend({ to: z.iso.date() })
+  .refine(({ from, to }) => isPlannedWorkoutRangeWithinLimit(from, to));
 
 /** Groups completed activities by the athlete's local calendar day, with UTC as a fallback. */
 const activityLocalDate = sql<string>`coalesce(date(${stravaActivities.startDateLocal}), date(${stravaActivities.startDate}))`;
 
-export const activityCalendarRoutes = new Hono().use(isAuthenticated).get(
-  "/",
-  sValidator("query", calendarQuery$, (result, c) => {
-    if (!result.success) return c.json({ message: "A valid from and to date are required" }, 400);
-  }),
-  async (c) => {
+export const calendarRoutes = new Hono()
+  .use(isAuthenticated)
+  .get("/", sValidator("query", calendarQuery$), async (c) => {
     const { from, to } = c.req.valid("query");
-    if (from > to) return c.json({ message: "A valid from and to date are required" }, 400);
 
     const rows = await db
       .select({
@@ -49,5 +46,4 @@ export const activityCalendarRoutes = new Hono().use(isAuthenticated).get(
       .orderBy(activityLocalDate);
 
     return c.json({ activities: rows });
-  },
-);
+  });

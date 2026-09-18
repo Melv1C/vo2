@@ -3,6 +3,7 @@ import type {
   PlannedWorkout,
   UpdatePlannedWorkoutInput,
 } from "@repo/ai";
+import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
 import { Calendar } from "@repo/ui/components/ui/calendar";
 import {
@@ -49,6 +50,7 @@ export function TrainingCalendar() {
   const range = monthRange(month);
   const plannedQuery = useQuery(plannedWorkoutsQueryOptions(range.from, range.to));
   const activityQuery = useQuery(calendarActivitiesQueryOptions(range.from, range.to));
+  const calendarError = plannedQuery.error ?? activityQuery.error;
 
   const plannedWorkouts: PlannedWorkout[] = plannedQuery.data?.workouts ?? emptyWorkouts;
   const activities: CalendarActivity[] = activityQuery.data?.activities ?? emptyActivities;
@@ -137,6 +139,14 @@ export function TrainingCalendar() {
       </CardHeader>
 
       <CardContent className="grid gap-6 pt-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+        {calendarError ? (
+          <Alert variant="destructive" className="lg:col-span-2">
+            <AlertTitle>Training calendar unavailable</AlertTitle>
+            <AlertDescription>
+              We could not load the latest workouts and activities. Try again in a moment.
+            </AlertDescription>
+          </Alert>
+        ) : null}
         <div>
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-medium">
@@ -195,6 +205,7 @@ export function TrainingCalendar() {
           selectedWorkouts={selectedWorkouts}
           selectedActivities={selectedActivities}
           isLoading={plannedQuery.isLoading || activityQuery.isLoading}
+          hasError={Boolean(calendarError)}
           onCreate={() => openCreate(selectedDate)}
           onEdit={openEdit}
           onDelete={(id) => {
