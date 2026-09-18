@@ -80,7 +80,7 @@ export const deletePlannedWorkoutOutputSchema$ = z.object({
 export const listPlannedWorkoutsToolDefinition = toolDefinition({
   name: "list_planned_workouts",
   description:
-    "Read the authenticated athlete's planned workouts for a date range. Use this when answering questions about the training plan or upcoming sessions.",
+    "Read the authenticated athlete's planned workouts for a date range. Call this before answering plan questions and before every create, update, or delete.",
   inputSchema: listPlannedWorkoutsInputSchema$,
   outputSchema: listPlannedWorkoutsOutputSchema$,
 });
