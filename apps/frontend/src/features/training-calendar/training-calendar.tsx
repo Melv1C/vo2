@@ -73,6 +73,7 @@ export function TrainingCalendar() {
   const queryClient = useQueryClient();
   const month = useTrainingCalendarStore((state) => state.month);
   const selectedDate = useTrainingCalendarStore((state) => state.selectedDate);
+  const dialogOpen = useTrainingCalendarStore((state) => state.dialogOpen);
   const editingWorkout = useTrainingCalendarStore((state) => state.editingWorkout);
   const draft = useTrainingCalendarStore((state) => state.draft);
   const changeMonth = useTrainingCalendarStore((state) => state.changeMonth);
@@ -120,6 +121,32 @@ export function TrainingCalendar() {
     },
   });
 
+  function resetMutationErrors() {
+    createMutation.reset();
+    updateMutation.reset();
+    deleteMutation.reset();
+  }
+
+  function openCreateDialog(date: string) {
+    resetMutationErrors();
+    openCreate(date);
+  }
+
+  function openEditDialog(workout: PlannedWorkout) {
+    resetMutationErrors();
+    openEdit(workout);
+  }
+
+  function closeWorkoutDialog() {
+    resetMutationErrors();
+    closeDialog();
+  }
+
+  function removeWorkout(id: string) {
+    deleteMutation.reset();
+    deleteMutation.mutate(id);
+  }
+
   function submitDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const durationMinutes = Number(draft.durationMinutes);
@@ -166,7 +193,7 @@ export function TrainingCalendar() {
           variant="ghost"
           size="sm"
           className="shrink-0"
-          onClick={() => openCreate(selectedDate)}
+          onClick={() => openCreateDialog(selectedDate)}
         >
           <PlusIcon />
           Add workout
@@ -174,6 +201,12 @@ export function TrainingCalendar() {
       </header>
 
       <div className="grid gap-6 pt-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+        {deleteMutation.error && !dialogOpen ? (
+          <Alert variant="destructive" className="lg:col-span-2">
+            <AlertTitle>Could not delete workout</AlertTitle>
+            <AlertDescription>{deleteMutation.error.message}</AlertDescription>
+          </Alert>
+        ) : null}
         {calendarError ? (
           <Alert variant="destructive" className="lg:col-span-2">
             <AlertTitle>Training calendar unavailable</AlertTitle>
@@ -256,10 +289,10 @@ export function TrainingCalendar() {
           selectedActivities={selectedActivities}
           isLoading={plannedQuery.isLoading || activityQuery.isLoading}
           hasError={Boolean(calendarError)}
-          onCreate={() => openCreate(selectedDate)}
-          onEdit={openEdit}
+          onCreate={() => openCreateDialog(selectedDate)}
+          onEdit={openEditDialog}
           onDelete={(id) => {
-            if (window.confirm("Delete this planned workout?")) deleteMutation.mutate(id);
+            if (window.confirm("Delete this planned workout?")) removeWorkout(id);
           }}
         />
       </div>
@@ -271,8 +304,9 @@ export function TrainingCalendar() {
         onSubmit={submitDraft}
         onDelete={() => {
           if (editingWorkout && window.confirm("Delete this planned workout?"))
-            deleteMutation.mutate(editingWorkout.id);
+            removeWorkout(editingWorkout.id);
         }}
+        onClose={closeWorkoutDialog}
       />
     </section>
   );

@@ -64,7 +64,13 @@ export const useTrainingCalendarStore = create<TrainingCalendarState>((set) => (
       month,
       selectedDate: formatDateLocal(new Date(month.getFullYear(), month.getMonth(), 1)),
     }),
-  selectDate: (selectedDate) => set({ selectedDate }),
+  selectDate: (selectedDate) => {
+    const date = dateFromString(selectedDate);
+    set({
+      selectedDate,
+      month: new Date(date.getFullYear(), date.getMonth(), 1),
+    });
+  },
   openCreate: (date = today) =>
     set({ editingWorkout: undefined, draft: initialDraft(date), dialogOpen: true }),
   openEdit: (editingWorkout) =>

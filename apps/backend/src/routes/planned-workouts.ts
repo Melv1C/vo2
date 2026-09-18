@@ -20,7 +20,7 @@ import { isPlannedWorkoutRangeWithinLimit } from "@/services/planned-workouts-ra
 const querySchema = listPlannedWorkoutsInputSchema$.refine(
   ({ from, to }) => to === undefined || isPlannedWorkoutRangeWithinLimit(from, to),
 );
-const idParamSchema$ = z.object({ id: z.string().trim().min(1) });
+const idParamSchema$ = z.object({ id: z.uuid() });
 
 export const plannedWorkoutRoutes = new Hono()
   .use(isAuthenticated)

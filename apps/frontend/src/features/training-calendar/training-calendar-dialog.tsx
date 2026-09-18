@@ -22,6 +22,7 @@ type TrainingCalendarDialogProps = {
   error: Error | null;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onDelete: () => void;
+  onClose: () => void;
 };
 
 export function TrainingCalendarDialog({
@@ -30,15 +31,15 @@ export function TrainingCalendarDialog({
   error,
   onSubmit,
   onDelete,
+  onClose,
 }: TrainingCalendarDialogProps) {
   const dialogOpen = useTrainingCalendarStore((state) => state.dialogOpen);
   const editingWorkout = useTrainingCalendarStore((state) => state.editingWorkout);
   const draft = useTrainingCalendarStore((state) => state.draft);
-  const closeDialog = useTrainingCalendarStore((state) => state.closeDialog);
   const setDraft = useTrainingCalendarStore((state) => state.setDraft);
 
   return (
-    <Dialog open={dialogOpen} onOpenChange={(open) => (open ? undefined : closeDialog())}>
+    <Dialog open={dialogOpen} onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{editingWorkout ? "Edit planned workout" : "Plan a workout"}</DialogTitle>
