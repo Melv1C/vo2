@@ -233,8 +233,8 @@ export function TrainingCalendar() {
               weekday:
                 "flex-1 rounded-none px-0 text-[0.62rem] font-semibold tracking-[0.16em] text-muted-foreground uppercase",
               weeks: "w-full",
-              week: "mt-0 h-16 border-b border-border/50 last:border-b-0",
-              day: "h-16 rounded-none p-0",
+              week: "mt-0 flex h-16 w-full border-b border-border/50 last:border-b-0",
+              day: "group/day relative h-16 min-w-0 flex-1 rounded-none p-0",
               today: "rounded-none bg-transparent text-foreground",
               outside: "text-muted-foreground/35",
             }}
