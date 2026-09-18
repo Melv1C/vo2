@@ -6,16 +6,9 @@ import type {
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button } from "@repo/ui/components/ui/button";
 import { Calendar } from "@repo/ui/components/ui/calendar";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/ui/card";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
-import { useMemo, type FormEvent } from "react";
+import { useMemo, type ButtonHTMLAttributes, type FormEvent } from "react";
 
 import type { CalendarActivity } from "@/lib/activities-api";
 import { calendarActivitiesQueryOptions } from "@/lib/calendar-query";
@@ -35,6 +28,46 @@ import {
   monthRange,
   useTrainingCalendarStore,
 } from "./training-calendar-store";
+
+type CalendarDayButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  day: { date: Date };
+  modifiers: Record<string, boolean>;
+};
+
+function CalendarDayButton({ day, modifiers, className, ...props }: CalendarDayButtonProps) {
+  const isSelected = modifiers.selected;
+  const isOutside = modifiers.outside;
+  const hasPlanned = modifiers.hasPlanned;
+  const hasCompleted = modifiers.hasCompleted;
+
+  return (
+    <button
+      {...props}
+      type="button"
+      className={[
+        "group/day relative flex h-16 w-full min-w-0 flex-col items-center justify-start gap-1 rounded-none pt-2 text-sm font-medium outline-none transition-colors",
+        "hover:bg-muted/50 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring/50",
+        "text-foreground",
+        isOutside ? "text-muted-foreground/35" : "",
+        className ?? "",
+      ].join(" ")}
+      aria-label={props["aria-label"]}
+    >
+      <span
+        className={[
+          "flex size-8 items-center justify-center rounded-full",
+          isSelected ? "bg-foreground text-background" : "",
+        ].join(" ")}
+      >
+        {day.date.getDate()}
+      </span>
+      <span className="flex h-2 items-center gap-1" aria-hidden="true">
+        {hasPlanned ? <span className="bg-primary size-1.5 rounded-sm" /> : null}
+        {hasCompleted ? <span className="size-1.5 rounded-full bg-emerald-500" /> : null}
+      </span>
+    </button>
+  );
+}
 
 export function TrainingCalendar() {
   const queryClient = useQueryClient();
@@ -118,27 +151,29 @@ export function TrainingCalendar() {
   const mutationError = createMutation.error ?? updateMutation.error ?? deleteMutation.error;
 
   return (
-    <Card className="w-full overflow-visible">
-      <CardHeader className="border-b pb-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-muted-foreground mb-2 flex items-center gap-2 text-[0.65rem] font-semibold tracking-[0.16em] uppercase">
-              <CalendarDaysIcon className="size-3.5" />
-              Training plan
-            </div>
-            <CardTitle className="text-xl tracking-tight">Make the week visible.</CardTitle>
-            <CardDescription className="mt-1">
-              Planned sessions and completed Strava activities share the same calendar.
-            </CardDescription>
+    <section className="w-full overflow-visible">
+      <header className="border-border/60 flex items-end justify-between gap-4 border-b pb-4">
+        <div>
+          <div className="text-muted-foreground flex items-center gap-2 text-[0.65rem] font-semibold tracking-[0.16em] uppercase">
+            <CalendarDaysIcon className="size-3.5" />
+            Training plan
           </div>
-          <Button onClick={() => openCreate(selectedDate)} size="sm">
-            <PlusIcon />
-            Add workout
-          </Button>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Planned workouts and completed activities, at a glance.
+          </p>
         </div>
-      </CardHeader>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0"
+          onClick={() => openCreate(selectedDate)}
+        >
+          <PlusIcon />
+          Add workout
+        </Button>
+      </header>
 
-      <CardContent className="grid gap-6 pt-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="grid gap-6 pt-5 lg:grid-cols-[minmax(0,1fr)_260px]">
         {calendarError ? (
           <Alert variant="destructive" className="lg:col-span-2">
             <AlertTitle>Training calendar unavailable</AlertTitle>
@@ -148,8 +183,8 @@ export function TrainingCalendar() {
           </Alert>
         ) : null}
         <div>
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <p className="text-lg font-semibold tracking-tight">
               {month.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
             </p>
             <div className="flex items-center gap-1">
@@ -184,18 +219,33 @@ export function TrainingCalendar() {
               hasPlanned: plannedDates,
               hasCompleted: activityDates,
             }}
-            modifiersClassNames={{
-              hasPlanned: "bg-primary/10 text-primary font-semibold",
-              hasCompleted: "ring-1 ring-emerald-500/70 ring-inset",
+            components={{
+              DayButton: CalendarDayButton,
             }}
-            className="mx-auto w-full max-w-md"
+            classNames={{
+              root: "w-full",
+              months: "w-full",
+              month: "w-full gap-3",
+              month_caption: "hidden",
+              nav: "hidden",
+              month_grid: "w-full border-collapse",
+              weekdays: "mb-1 flex",
+              weekday:
+                "flex-1 rounded-none px-0 text-[0.62rem] font-semibold tracking-[0.16em] text-muted-foreground uppercase",
+              weeks: "w-full",
+              week: "mt-0 h-16 border-b border-border/50 last:border-b-0",
+              day: "h-16 rounded-none p-0",
+              today: "rounded-none bg-transparent text-foreground",
+              outside: "text-muted-foreground/35",
+            }}
+            className="mx-auto w-full max-w-xl bg-transparent p-0"
           />
-          <div className="text-muted-foreground mt-3 flex flex-wrap gap-x-4 gap-y-2 px-2 text-[0.65rem]">
+          <div className="text-muted-foreground mt-3 flex flex-wrap gap-x-4 gap-y-2 px-1 text-[0.65rem]">
             <span className="flex items-center gap-1.5">
-              <span className="bg-primary size-1.5 rounded-full" /> Planned workout
+              <span className="bg-primary size-1.5 rounded-sm" /> Planned workout
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-full border border-emerald-500" /> Completed activity
+              <span className="size-1.5 rounded-full bg-emerald-500" /> Completed activity
             </span>
           </div>
         </div>
@@ -212,7 +262,7 @@ export function TrainingCalendar() {
             if (window.confirm("Delete this planned workout?")) deleteMutation.mutate(id);
           }}
         />
-      </CardContent>
+      </div>
 
       <TrainingCalendarDialog
         isSaving={isSaving}
@@ -224,6 +274,6 @@ export function TrainingCalendar() {
             deleteMutation.mutate(editingWorkout.id);
         }}
       />
-    </Card>
+    </section>
   );
 }
