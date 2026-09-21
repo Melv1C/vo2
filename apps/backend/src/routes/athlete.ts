@@ -1,3 +1,4 @@
+import { sValidator } from "@hono/standard-validator";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 
@@ -97,9 +98,9 @@ export const athleteRoutes = new Hono()
     const profile = await ensureProfile(userId);
     return c.json(toProfileResponse(profile));
   })
-  .put("/profile", async (c) => {
+  .put("/profile", sValidator("json", updateAthleteProfile$), async (c) => {
     const userId = c.get("user")!.id;
-    const body = updateAthleteProfile$.parse(await c.req.json());
+    const body = c.req.valid("json");
     const before = await ensureProfile(userId);
 
     const update: Partial<typeof athleteProfile.$inferInsert> = {};
@@ -178,9 +179,9 @@ export const athleteRoutes = new Hono()
 
     return c.json(response);
   })
-  .put("/zones", async (c) => {
+  .put("/zones", sValidator("json", updateAthleteZones$), async (c) => {
     const userId = c.get("user")!.id;
-    const body = updateAthleteZones$.parse(await c.req.json());
+    const body = c.req.valid("json");
 
     const [row] = await db
       .insert(athleteZones)

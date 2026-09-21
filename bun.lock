@@ -24,6 +24,7 @@
         "@better-auth/drizzle-adapter": "^1.7.1",
         "@better-fetch/fetch": "^1.3.1",
         "@hono/prometheus": "^1.0.3",
+        "@hono/standard-validator": "^0.4.0",
         "@repo/ai": "workspace:*",
         "@tanstack/ai": "^0.53.0",
         "@tanstack/ai-openrouter": "^0.19.8",
@@ -74,6 +75,7 @@
         "tw-animate-css": "^1.4.0",
         "varlock": "^1.17.0",
         "vite": "^8.2.2",
+        "zustand": "^5.0.8",
       },
       "devDependencies": {
         "@tanstack/devtools-vite": "0.8.5",
@@ -347,6 +349,8 @@
     "@hono/node-server": ["@hono/node-server@2.1.0", "", { "peerDependencies": { "hono": "^4" } }, "sha512-XovyyCCnBzW+zKu+z/zq8hwNs4KOR5rEMAOxo2f40Q5xoOI37IMm6MIg2COOUtUApo0i6850MTBKH2u4QLGIqg=="],
 
     "@hono/prometheus": ["@hono/prometheus@1.0.3", "", { "peerDependencies": { "hono": ">=3.0.0", "prom-client": "^15.0.0" } }, "sha512-oOBMk2yJL62l6unLkFrAct5IJejSac0yYjomxZuPqDTGKWPcmPD94zQGkLQNdzPRCOW9jEUN3QfxL0Rh5kiNOA=="],
+
+    "@hono/standard-validator": ["@hono/standard-validator@0.4.0", "", { "peerDependencies": { "@standard-schema/spec": "^1.0.0", "hono": ">=4.11.2" } }, "sha512-MxOm1asDh9j7c1D0KiWwppSbFgAQxTRO4YEhjMrJn3lF1BIcXenPdgjSGKDRfQmZdaTaMA8slQLETgVOKyJxFw=="],
 
     "@humanfs/core": ["@humanfs/core@0.19.2", "", { "dependencies": { "@humanfs/types": "^0.15.0" } }, "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA=="],
 
@@ -2101,6 +2105,8 @@
     "zod": ["zod@4.4.3", "", {}, "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ=="],
 
     "zod-to-json-schema": ["zod-to-json-schema@3.25.2", "", { "peerDependencies": { "zod": "^3.25.28 || ^4" } }, "sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA=="],
+
+    "zustand": ["zustand@5.0.15", "", { "peerDependencies": { "@types/react": ">=18.0.0", "immer": ">=9.0.6", "react": ">=18.0.0", "use-sync-external-store": ">=1.2.0" }, "optionalPeers": ["@types/react", "immer", "react", "use-sync-external-store"] }, "sha512-MpSEjRiBkA9crSYeOUH32rJC7SVqAbm0Fqcqge/bUi2PPoLcBWKOsG+C8mevmpr8TwXHBVkChbbJiyvkE+i/3A=="],
 
     "zwitch": ["zwitch@2.0.4", "", {}, "sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A=="],
 
